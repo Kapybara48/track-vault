@@ -69,24 +69,6 @@
 			console.error('Failed to delete track:', err);
 		}
 	}
-
-	// Quick 1-click toggles
-	async function cycleLyrics() {
-		const order: LyricsStatus[] = ['missing', 'plain_txt', 'unsynced_lrc', 'synced_lrc', 'instrumental'];
-		const nextIdx = (order.indexOf(track.lyrics) + 1) % order.length;
-		await updateField('lyrics', order[nextIdx]);
-	}
-
-	async function cycleCensorship() {
-		const order: CensorshipStatus[] = ['explicit', 'clean_original', 'censored'];
-		const nextIdx = (order.indexOf(track.censorship) + 1) % order.length;
-		await updateField('censorship', order[nextIdx]);
-	}
-
-	async function toggleFlac() {
-		const newFormat: AudioFormat = track.format === 'FLAC' ? 'MP3_320' : 'FLAC';
-		await updateField('format', newFormat);
-	}
 </script>
 
 <div
@@ -132,7 +114,7 @@
 		</div>
 	</div>
 
-	<!-- Right Side: Format, Quality, Censorship, Lyrics Controls -->
+	<!-- Right Side: Format, Quality, Censorship, Lyrics Controls (Direct Selection, No Tap-Through) -->
 	<div class="flex flex-wrap items-center gap-2 sm:justify-end">
 		<!-- Audio Format Selector -->
 		<div class="relative">
@@ -140,7 +122,7 @@
 				value={track.format}
 				onchange={(e) => updateField('format', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-purple-500 {getFormatBadgeClass(track.format)}"
+				class="rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {getFormatBadgeClass(track.format)}"
 				title="Change audio format"
 			>
 				{#each FORMAT_OPTIONS as opt}
@@ -157,7 +139,7 @@
 				value={track.quality_rating}
 				onchange={(e) => updateField('quality_rating', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-purple-500 {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
+				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
 				title="Audio quality assessment"
 			>
 				{#each QUALITY_OPTIONS as q}
@@ -168,48 +150,39 @@
 			</select>
 		</div>
 
-		<!-- Censorship Toggle Button -->
-		<button
-			type="button"
-			onclick={cycleCensorship}
-			disabled={isUpdating}
-			class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95 {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-			title="Click to cycle censorship status (Explicit -> Clean -> Censored)"
-		>
-			{#if track.censorship === 'explicit'}
-				<span class="rounded bg-amber-500/20 px-1 text-[10px] font-bold text-amber-300">E</span>
-				<span>Explicit</span>
-			{:else if track.censorship === 'censored'}
-				<AlertTriangle class="h-3 w-3 text-rose-400" />
-				<span>CENSORED</span>
-			{:else if track.censorship === 'clean_original'}
-				<span>Clean</span>
-			{:else}
-				<span>Instrumental</span>
-			{/if}
-		</button>
+		<!-- Censorship Direct Selector (No Tap-Through) -->
+		<div class="relative">
+			<select
+				value={track.censorship}
+				onchange={(e) => updateField('censorship', e.currentTarget.value)}
+				disabled={isUpdating}
+				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
+				title="Directly select censorship status"
+			>
+				{#each CENSORSHIP_OPTIONS as opt}
+					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
+						{opt.label}
+					</option>
+				{/each}
+			</select>
+		</div>
 
-		<!-- Lyrics Toggle Button -->
-		<button
-			type="button"
-			onclick={cycleLyrics}
-			disabled={isUpdating}
-			class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-			title="Click to cycle lyrics status (Missing -> Plain TXT -> Synced LRC -> Instrumental)"
-		>
-			{#if track.lyrics === 'synced_lrc'}
-				<CheckCircle2 class="h-3 w-3 text-emerald-400" />
-				<span>Synced .LRC</span>
-			{:else if track.lyrics === 'plain_txt'}
-				<FileText class="h-3 w-3 text-sky-400" />
-				<span>Plain TXT</span>
-			{:else if track.lyrics === 'missing'}
-				<AlertTriangle class="h-3 w-3 text-rose-400" />
-				<span>No Lyrics</span>
-			{:else}
-				<span>No Vocals</span>
-			{/if}
-		</button>
+		<!-- Lyrics Direct Selector (No Tap-Through) -->
+		<div class="relative">
+			<select
+				value={track.lyrics}
+				onchange={(e) => updateField('lyrics', e.currentTarget.value)}
+				disabled={isUpdating}
+				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
+				title="Directly select lyrics status"
+			>
+				{#each LYRICS_OPTIONS as opt}
+					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
+						{opt.label}
+					</option>
+				{/each}
+			</select>
+		</div>
 
 		<!-- Actions: Notes & Delete -->
 		<div class="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
@@ -241,19 +214,19 @@
 			type="text"
 			bind:value={notesValue}
 			placeholder="Notes for this track (e.g. 'needs vinyl rip replacement', 'radio muted curse at 1:45', etc.)"
-			class="flex-1 rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+			class="flex-1 rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 		/>
 		<button
 			type="button"
 			onclick={saveNotes}
-			class="rounded-lg bg-purple-600 px-3 py-1 text-xs font-semibold text-white hover:bg-purple-500"
+			class="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-sm shadow-emerald-600/30"
 		>
 			Save
 		</button>
 		<button
 			type="button"
 			onclick={() => (showNotes = false)}
-			class="rounded-lg bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+			class="rounded-lg bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700 transition"
 		>
 			Cancel
 		</button>

@@ -31,6 +31,7 @@
 		FolderSync
 	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import CustomToggle from '$lib/components/CustomToggle.svelte';
 
 	type ActiveTab = 'musicbrainz' | 'manual';
 	let activeTab = $state<ActiveTab>('musicbrainz');
@@ -706,13 +707,11 @@
 						<p class="text-xs text-neutral-400">Paste your tracklist lines (auto-detects track numbers & durations)</p>
 					</div>
 
-					<button
-						type="button"
-						onclick={() => (showPasteArea = !showPasteArea)}
-						class="rounded-lg bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-700"
-					>
-						{showPasteArea ? 'Hide Paste Tool' : 'Paste Tracklist Text'}
-					</button>
+					<CustomToggle
+						checked={showPasteArea}
+						label="Paste Tool"
+						onchange={(val) => (showPasteArea = val)}
+					/>
 				</div>
 
 				{#if showPasteArea}

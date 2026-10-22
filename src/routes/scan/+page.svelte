@@ -30,6 +30,7 @@
 		RotateCcw
 	} from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
+	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -466,13 +467,11 @@
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4">
 						<div class="flex items-center gap-4 min-w-0 flex-1">
 							<!-- Checkbox for entire album -->
-							<input
-								type="checkbox"
+							<CustomCheckbox
 								checked={album.selected}
-								onchange={() => toggleAlbumSelected(album)}
 								disabled={album.already_in_vault}
-								class="h-4 w-4 rounded border-neutral-700 bg-neutral-950 text-emerald-600 focus:ring-emerald-500"
 								title="Select all tracks in this album"
+								onchange={() => toggleAlbumSelected(album)}
 							/>
 
 							<!-- Cover Art / Thumbnail -->
@@ -614,11 +613,10 @@
 									<div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-2.5 text-xs transition hover:bg-neutral-900/60 {track.selected ? '' : 'opacity-50 bg-neutral-900/10'}">
 										<!-- Track Selection Checkbox & Info -->
 										<div class="flex items-center gap-3 min-w-0 flex-1">
-											<input
-												type="checkbox"
+											<CustomCheckbox
 												checked={track.selected}
+												title="Select track to import"
 												onchange={() => toggleTrackSelected(album, track)}
-												class="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-emerald-600 focus:ring-emerald-500"
 											/>
 
 											<span class="w-6 text-right font-mono text-neutral-500 text-[11px]">

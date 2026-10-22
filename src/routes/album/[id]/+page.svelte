@@ -2,6 +2,7 @@
 	import type { PageData } from './$types.js';
 	import type { Track, AudioFormat, QualityRating, CensorshipStatus, LyricsStatus } from '$lib/types/index.js';
 	import TrackRow from '$lib/components/TrackRow.svelte';
+	import CustomToggle from '$lib/components/CustomToggle.svelte';
 	import { formatDuration, FORMAT_OPTIONS, QUALITY_OPTIONS, CENSORSHIP_OPTIONS, LYRICS_OPTIONS } from '$lib/utils.js';
 	import {
 		Disc,
@@ -390,16 +391,16 @@
 				</button>
 			</div>
 
-			<div class="flex items-center gap-2">
-				<!-- Issues Only Toggle -->
-				<button
-					type="button"
-					onclick={() => (filterIssuesOnly = !filterIssuesOnly)}
-					class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold border transition {filterIssuesOnly ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:bg-neutral-800'}"
-				>
-					<AlertTriangle class="h-3.5 w-3.5" />
-					{filterIssuesOnly ? 'Showing Issues Only' : 'Filter Issues'}
-				</button>
+			<div class="flex items-center gap-3">
+				<!-- Issues Only Custom Toggle Switch -->
+				<div class="flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-1.5 shadow-sm">
+					<AlertTriangle class="h-3.5 w-3.5 {filterIssuesOnly ? 'text-amber-400' : 'text-neutral-500'}" />
+					<CustomToggle
+						checked={filterIssuesOnly}
+						label="Issues Only"
+						onchange={(val) => (filterIssuesOnly = val)}
+					/>
+				</div>
 
 				<button
 					type="button"
@@ -415,15 +416,73 @@
 
 	<!-- Tracklist Section -->
 	<section class="mt-8">
-		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-lg font-bold text-neutral-100 flex items-center gap-2">
-				<Music class="h-5 w-5 text-emerald-400" />
-				Tracklist ({displayedTracks.length})
-			</h2>
+		<!-- Quick Album-Wide Batch Dropdowns (No Tap-Through) -->
+		<div class="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3.5">
+			<div class="flex items-center gap-2">
+				<Music class="h-4 w-4 text-emerald-400" />
+				<h2 class="text-sm font-bold text-neutral-100">
+					Tracklist ({displayedTracks.length})
+				</h2>
+				<span class="text-neutral-600">•</span>
+				<span class="text-xs text-neutral-400">
+					Direct single-click selection on each song below
+				</span>
+			</div>
 
-			<span class="text-xs text-neutral-400">
-				Tip: Click on badges to quickly toggle status or format
-			</span>
+			<!-- Batch quick-apply to whole album -->
+			<div class="flex flex-wrap items-center gap-2 text-xs">
+				<span class="text-[11px] font-semibold text-neutral-400">Batch album:</span>
+				<select
+					onchange={(e) => {
+						if (e.currentTarget.value) {
+							batchFormat = e.currentTarget.value as AudioFormat;
+							submitBatchUpdate();
+							e.currentTarget.value = '';
+						}
+					}}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500"
+					title="Set format for all tracks in this album"
+				>
+					<option value="">Set Format...</option>
+					{#each FORMAT_OPTIONS as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+
+				<select
+					onchange={(e) => {
+						if (e.currentTarget.value) {
+							batchCensorship = e.currentTarget.value as CensorshipStatus;
+							submitBatchUpdate();
+							e.currentTarget.value = '';
+						}
+					}}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500"
+					title="Set censorship for all tracks in this album"
+				>
+					<option value="">Set Censorship...</option>
+					{#each CENSORSHIP_OPTIONS as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+
+				<select
+					onchange={(e) => {
+						if (e.currentTarget.value) {
+							batchLyrics = e.currentTarget.value as LyricsStatus;
+							submitBatchUpdate();
+							e.currentTarget.value = '';
+						}
+					}}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500"
+					title="Set lyrics for all tracks in this album"
+				>
+					<option value="">Set Lyrics...</option>
+					{#each LYRICS_OPTIONS as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 
 		{#if displayedTracks.length > 0}
