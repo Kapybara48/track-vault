@@ -216,6 +216,7 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 		const fileName = path.basename(filePath);
 		const title = common.title || path.basename(filePath, path.extname(filePath));
 		const artist = common.artist || common.albumartist || 'Unknown Artist';
+		const albumArtist = common.albumartist || common.artist || 'Unknown Artist';
 		const album = common.album || path.basename(path.dirname(filePath));
 		const year = common.year || null;
 		const trackNumber = common.track.no || 1;
@@ -245,6 +246,7 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 			file_name: fileName,
 			title,
 			artist,
+			album_artist: albumArtist,
 			album,
 			year,
 			track_number: trackNumber,
@@ -328,10 +330,10 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 		const folder = path.dirname(tr.file_path);
 		let key: string;
 
-		if (tr.album && tr.artist && tr.album !== 'Unknown Album') {
-			key = `${folder}::${tr.artist.toLowerCase()} - ${tr.album.toLowerCase()}`;
-		} else if (tr.musicbrainz_album_id) {
+		if (tr.musicbrainz_album_id) {
 			key = `mb:${tr.musicbrainz_album_id}`;
+		} else if (tr.album && tr.album !== 'Unknown Album') {
+			key = `${folder}::${tr.album.toLowerCase()}`;
 		} else {
 			key = `dir:${folder}`;
 		}
@@ -365,7 +367,7 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 
 		const first = group.tracks[0];
 		const albumTitle = first.album || path.basename(group.folder);
-		const albumArtist = first.artist || 'Unknown Artist';
+		const albumArtist = group.tracks.find((t) => t.album_artist)?.album_artist || first.artist || 'Unknown Artist';
 		const albumYear = group.tracks.find((t) => t.year)?.year || null;
 
 		// Cover Art: Local cover file or Cover Art Archive via MBID

@@ -125,6 +125,7 @@ export interface ScannedTrack {
 	file_name: string;
 	title: string;
 	artist: string;
+	album_artist?: string;
 	album: string;
 	year: number | null;
 	track_number: number;
