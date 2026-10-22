@@ -474,65 +474,87 @@
 								onchange={() => toggleAlbumSelected(album)}
 							/>
 
-							<!-- Cover Art / Thumbnail -->
-							<div class="relative aspect-square h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-neutral-950 border border-neutral-800">
-								{#if album.cover_url}
-									<img
-										src={album.cover_url}
-										alt={album.title}
-										class="h-full w-full object-cover"
-										onerror={(e) => {
-											(e.currentTarget as HTMLElement).style.display = 'none';
-										}}
-									/>
-								{:else}
-									<div class="flex h-full w-full items-center justify-center text-neutral-600">
-										<Disc class="h-8 w-8 opacity-40" />
-									</div>
-								{/if}
-							</div>
-
-							<!-- Album & Artist Title -->
-							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-2">
-									<h3 class="truncate text-base font-bold text-white" title={album.title}>
-										{album.title}
-									</h3>
-
-									{#if album.already_in_vault}
-										<span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/60">
-											<Check class="h-3 w-3" />
-											In Vault
-										</span>
-									{/if}
-
-									{#if album.musicbrainz_id}
-										<a
-											href="https://musicbrainz.org/release/{album.musicbrainz_id}"
-											target="_blank"
-											rel="noreferrer"
-											class="inline-flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/50 hover:text-white"
-											title="MusicBrainz Album ID detected in song tags"
-										>
-											<Sparkles class="h-3 w-3" />
-											MBID: {album.musicbrainz_id.substring(0, 8)}...
-											<ExternalLink class="h-2.5 w-2.5" />
-										</a>
+							<!-- Cover Art & Titles (Click anywhere on the album to show/hide songs) -->
+							<div
+								role="button"
+								tabindex="0"
+								onclick={() => toggleExpand(album.album_key)}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										toggleExpand(album.album_key);
+									}
+								}}
+								class="flex items-center gap-4 min-w-0 flex-1 cursor-pointer select-none group/album-header"
+								title="Click to {isExpanded ? 'hide' : 'show'} songs in this album"
+							>
+								<!-- Cover Art / Thumbnail -->
+								<div class="relative aspect-square h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-neutral-950 border border-neutral-800 transition duration-150 group-hover/album-header:border-emerald-500/50">
+									{#if album.cover_url}
+										<img
+											src={album.cover_url}
+											alt={album.title}
+											class="h-full w-full object-cover"
+											onerror={(e) => {
+												(e.currentTarget as HTMLElement).style.display = 'none';
+											}}
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center text-neutral-600">
+											<Disc class="h-8 w-8 opacity-40 group-hover/album-header:scale-110 transition" />
+										</div>
 									{/if}
 								</div>
 
-								<p class="truncate text-xs font-medium text-neutral-300 mt-0.5">
-									{album.artist}
-								</p>
+								<!-- Album & Artist Title -->
+								<div class="min-w-0 flex-1">
+									<div class="flex flex-wrap items-center gap-2">
+										<h3 class="truncate text-base font-bold text-white group-hover/album-header:text-emerald-300 transition" title={album.title}>
+											{album.title}
+										</h3>
 
-								<div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
-									<span>{album.year || 'Unknown Year'}</span>
-									<span>•</span>
-									<span class="font-medium text-emerald-400">{selectedCount} of {album.track_count} songs selected</span>
-									<span>•</span>
-									<span class="truncate font-mono text-[10px] text-neutral-500" title={album.folder_path}>
-										{album.folder_path}
-									</span>
+										{#if album.already_in_vault}
+											<span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/60">
+												<Check class="h-3 w-3" />
+												In Vault
+											</span>
+										{/if}
+
+										{#if album.musicbrainz_id}
+											<a
+												href="https://musicbrainz.org/release/{album.musicbrainz_id}"
+												target="_blank"
+												rel="noreferrer"
+												onclick={(e) => e.stopPropagation()}
+												class="inline-flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/50 hover:text-white"
+												title="MusicBrainz Album ID detected in song tags"
+											>
+												<Sparkles class="h-3 w-3" />
+												MBID: {album.musicbrainz_id.substring(0, 8)}...
+												<ExternalLink class="h-2.5 w-2.5" />
+											</a>
+										{/if}
+									</div>
+
+									<p class="truncate text-xs font-medium text-neutral-300 mt-0.5">
+										{album.artist}
+									</p>
+
+									<div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
+										<span>{album.year || 'Unknown Year'}</span>
+										<span>•</span>
+										<span class="font-medium text-emerald-400">{selectedCount} of {album.track_count} songs selected</span>
+										<span>•</span>
+										<span class="text-neutral-500 flex items-center gap-1 group-hover/album-header:text-emerald-400 transition">
+											{#if isExpanded}
+												<ChevronUp class="h-3 w-3" />
+												<span>Click to hide songs</span>
+											{:else}
+												<ChevronDown class="h-3 w-3" />
+												<span>Click to show songs</span>
+											{/if}
+										</span>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -543,8 +565,9 @@
 								type="button"
 								onclick={() => toggleExpand(album.album_key)}
 								class="flex items-center gap-1.5 rounded-xl bg-neutral-800/80 px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-neutral-700 hover:text-white transition"
+								title="{isExpanded ? 'Hide' : 'Show'} songs"
 							>
-								<span>Choose Songs ({selectedCount})</span>
+								<span>{isExpanded ? 'Hide Songs' : 'Show Songs'} ({selectedCount})</span>
 								{#if isExpanded}
 									<ChevronUp class="h-4 w-4" />
 								{:else}

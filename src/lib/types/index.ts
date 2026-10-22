@@ -31,6 +31,31 @@ export type LyricsStatus =
 	| 'missing'       // Missing lyrics
 	| 'instrumental'; // No lyrics needed
 
+export interface FixerRules {
+	flag_lossy?: boolean; // Flag any lossy format (MP3, AAC, OGG, WMA, OPUS)
+	flag_mp3?: boolean; // Specific flag for all MP3 files
+	flag_bad_quality?: boolean; // default true
+	flag_needs_upgrade?: boolean; // default true
+	flag_censored?: boolean; // default true
+	flag_clean?: boolean; // default false (require explicit)
+	flag_missing_lyrics?: boolean; // default true
+	flag_unsynced_lyrics?: boolean; // default true
+	flag_plain_lyrics?: boolean; // default false (require synced LRC)
+}
+
+export interface SearchFilters {
+	search?: string;
+	format?: string;
+	notFormat?: string;
+	censorship?: string;
+	notCensorship?: string;
+	lyrics?: string;
+	notLyrics?: string;
+	quality?: string;
+	notQuality?: string;
+	filter?: string;
+}
+
 export interface Album {
 	id: number;
 	musicbrainz_id: string | null;
@@ -41,6 +66,7 @@ export interface Album {
 	cover_url: string | null;
 	media_type: string | null;
 	notes: string | null;
+	fixer_rules?: string | null;
 	created_at: string;
 	updated_at: string;
 	// Computed / joined fields
@@ -48,6 +74,8 @@ export interface Album {
 	bad_quality_count?: number;
 	censored_count?: number;
 	missing_lyrics_count?: number;
+	matched_tracks_count?: number;
+	parsed_fixer_rules?: FixerRules;
 }
 
 export interface Track {

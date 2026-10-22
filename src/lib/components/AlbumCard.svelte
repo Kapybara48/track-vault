@@ -78,6 +78,14 @@
 			<span>{album.track_count || 0} tracks</span>
 		</div>
 
+		<!-- Matching Tracks Badge when specific track search is active -->
+		{#if album.matched_tracks_count !== undefined}
+			<div class="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-950/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 border border-emerald-700/60 shadow-sm">
+				<Music class="h-3 w-3 text-emerald-400" />
+				<span>{album.matched_tracks_count} matching {album.matched_tracks_count === 1 ? 'file' : 'files'}</span>
+			</div>
+		{/if}
+
 		<!-- Status Pills Breakdown -->
 		{#if hasIssues}
 			<div class="mt-2 flex flex-wrap gap-1.5 pt-1">

@@ -8,8 +8,11 @@ import type {
 	AudioFormat,
 	QualityRating,
 	CensorshipStatus,
-	LyricsStatus
+	LyricsStatus,
+	FixerRules,
+	SearchFilters
 } from '$lib/types/index.js';
+import { parseSearchQuery } from '$lib/search.js';
 
 const DB_PATH = process.env.DATA_DIR
 	? path.join(process.env.DATA_DIR, 'trackvault.db')
@@ -40,6 +43,7 @@ db.exec(`
 		cover_url TEXT,
 		media_type TEXT,
 		notes TEXT,
+		fixer_rules TEXT,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
@@ -70,18 +74,99 @@ db.exec(`
 	CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist);
 `);
 
+// Idempotent column migrations for existing databases
+try {
+	db.exec(`ALTER TABLE albums ADD COLUMN fixer_rules TEXT;`);
+} catch {
+	// Column already exists
+}
+
 /**
- * Helper to determine if a track needs attention
+ * Helper to determine if a track needs attention according to album or global fixer rules
  */
 export function computeNeedsAttention(
 	quality: QualityRating,
 	censorship: CensorshipStatus,
-	lyrics: LyricsStatus
+	lyrics: LyricsStatus,
+	format: AudioFormat = 'FLAC',
+	rules?: FixerRules | null
 ): number {
-	const badQuality = quality === 'bad' || quality === 'needs_upgrade';
-	const isCensored = censorship === 'censored';
-	const needsLyricsFix = lyrics === 'missing' || lyrics === 'unsynced_lrc';
-	return badQuality || isCensored || needsLyricsFix ? 1 : 0;
+	// Quality checks
+	const badQuality = rules?.flag_bad_quality ?? true;
+	const needsUpgrade = rules?.flag_needs_upgrade ?? true;
+	if (badQuality && quality === 'bad') return 1;
+	if (needsUpgrade && quality === 'needs_upgrade') return 1;
+
+	// Format checks (e.g. if user decides .mp3 is too bad or wants lossless only)
+	if (rules?.flag_lossy) {
+		const isLossy = ['MP3_320', 'MP3_V0', 'MP3_192', 'MP3_128', 'AAC_256', 'OGG', 'OTHER'].includes(format);
+		if (isLossy) return 1;
+	}
+	if (rules?.flag_mp3) {
+		if (format.startsWith('MP3')) return 1;
+	}
+
+	// Censorship checks
+	const flagCensored = rules?.flag_censored ?? true;
+	if (flagCensored && censorship === 'censored') return 1;
+	const flagClean = rules?.flag_clean ?? false;
+	if (flagClean && censorship === 'clean_original') return 1;
+
+	// Lyrics checks
+	const flagMissing = rules?.flag_missing_lyrics ?? true;
+	if (flagMissing && lyrics === 'missing') return 1;
+	const flagUnsynced = rules?.flag_unsynced_lyrics ?? true;
+	if (flagUnsynced && lyrics === 'unsynced_lrc') return 1;
+	const flagPlain = rules?.flag_plain_lyrics ?? false;
+	if (flagPlain && lyrics === 'plain_txt') return 1;
+
+	return 0;
+}
+
+export function getAlbumFixerRules(albumId: number): FixerRules | null {
+	const row = db.prepare('SELECT fixer_rules FROM albums WHERE id = ?').get(albumId) as { fixer_rules?: string } | undefined;
+	if (row?.fixer_rules) {
+		try {
+			return JSON.parse(row.fixer_rules);
+		} catch {
+			return null;
+		}
+	}
+	return null;
+}
+
+export function updateAlbumFixerRules(
+	albumId: number,
+	rules: FixerRules,
+	applyToAll: boolean = false
+): { album: Album; tracks: Track[] } {
+	const rulesJson = JSON.stringify(rules);
+
+	if (applyToAll) {
+		db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now')").run(rulesJson);
+		const allTracks = db.prepare('SELECT * FROM tracks').all() as Track[];
+		const updateTrackStmt = db.prepare("UPDATE tracks SET needs_attention = ?, updated_at = datetime('now') WHERE id = ?");
+		const tx = db.transaction(() => {
+			for (const t of allTracks) {
+				const na = computeNeedsAttention(t.quality_rating, t.censorship, t.lyrics, t.format, rules);
+				updateTrackStmt.run(na, t.id);
+			}
+		});
+		tx();
+	} else {
+		db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now') WHERE id = ?").run(rulesJson, albumId);
+		const tracks = db.prepare('SELECT * FROM tracks WHERE album_id = ?').all(albumId) as Track[];
+		const updateTrackStmt = db.prepare("UPDATE tracks SET needs_attention = ?, updated_at = datetime('now') WHERE id = ?");
+		const tx = db.transaction(() => {
+			for (const t of tracks) {
+				const na = computeNeedsAttention(t.quality_rating, t.censorship, t.lyrics, t.format, rules);
+				updateTrackStmt.run(na, t.id);
+			}
+		});
+		tx();
+	}
+
+	return getAlbumById(albumId)!;
 }
 
 export function getStats(): CollectionStats {
@@ -155,7 +240,17 @@ export function getStats(): CollectionStats {
 	};
 }
 
-export function getAlbums(searchQuery?: string, filter?: string): Album[] {
+export function getAlbums(searchQuery?: string, filter?: string, options?: SearchFilters): Album[] {
+	const parsed = parseSearchQuery(searchQuery || '');
+	const effectiveFormat = options?.format || parsed.format;
+	const effectiveNotFormat = options?.notFormat || parsed.notFormat;
+	const effectiveCensorship = options?.censorship || parsed.censorship;
+	const effectiveNotCensorship = options?.notCensorship || parsed.notCensorship;
+	const effectiveLyrics = options?.lyrics || parsed.lyrics;
+	const effectiveNotLyrics = options?.notLyrics || parsed.notLyrics;
+	const effectiveQuality = options?.quality || parsed.quality;
+	const effectiveText = options?.search !== undefined ? options.search : parsed.search;
+
 	let sql = `
 		SELECT 
 			a.*,
@@ -163,6 +258,65 @@ export function getAlbums(searchQuery?: string, filter?: string): Album[] {
 			SUM(CASE WHEN t.quality_rating IN ('bad', 'needs_upgrade') THEN 1 ELSE 0 END) as bad_quality_count,
 			SUM(CASE WHEN t.censorship = 'censored' THEN 1 ELSE 0 END) as censored_count,
 			SUM(CASE WHEN t.lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics_count
+	`;
+
+	const trackConditions: string[] = [];
+	const trackParams: (string | number)[] = [];
+
+	if (effectiveNotFormat) {
+		if (effectiveNotFormat === 'FLAC') {
+			trackConditions.push("t2.format != 'FLAC'");
+		} else if (effectiveNotFormat === 'MP3') {
+			trackConditions.push("t2.format NOT LIKE 'MP3%'");
+		} else {
+			trackConditions.push("t2.format != ?");
+			trackParams.push(effectiveNotFormat);
+		}
+	}
+
+	if (effectiveFormat) {
+		if (effectiveFormat === 'MP3') {
+			trackConditions.push("t2.format LIKE 'MP3%'");
+		} else {
+			trackConditions.push("t2.format = ?");
+			trackParams.push(effectiveFormat);
+		}
+	}
+
+	if (effectiveCensorship) {
+		trackConditions.push("t2.censorship = ?");
+		trackParams.push(effectiveCensorship);
+	}
+	if (effectiveNotCensorship) {
+		trackConditions.push("t2.censorship != ?");
+		trackParams.push(effectiveNotCensorship);
+	}
+
+	if (effectiveLyrics) {
+		trackConditions.push("t2.lyrics = ?");
+		trackParams.push(effectiveLyrics);
+	}
+	if (effectiveNotLyrics) {
+		trackConditions.push("t2.lyrics != ?");
+		trackParams.push(effectiveNotLyrics);
+	}
+
+	if (effectiveQuality) {
+		if (effectiveQuality === 'bad') {
+			trackConditions.push("t2.quality_rating IN ('bad', 'needs_upgrade')");
+		} else if (effectiveQuality === 'good') {
+			trackConditions.push("t2.quality_rating IN ('good', 'perfect')");
+		} else {
+			trackConditions.push("t2.quality_rating = ?");
+			trackParams.push(effectiveQuality);
+		}
+	}
+
+	if (trackConditions.length > 0) {
+		sql += `, (SELECT COUNT(*) FROM tracks t2 WHERE t2.album_id = a.id AND ${trackConditions.join(' AND ')}) as matched_tracks_count`;
+	}
+
+	sql += `
 		FROM albums a
 		LEFT JOIN tracks t ON t.album_id = a.id
 	`;
@@ -170,10 +324,16 @@ export function getAlbums(searchQuery?: string, filter?: string): Album[] {
 	const conditions: string[] = [];
 	const params: (string | number)[] = [];
 
-	if (searchQuery && searchQuery.trim()) {
-		conditions.push('(a.title LIKE ? OR a.artist LIKE ? OR a.genre LIKE ?)');
-		const q = `%${searchQuery.trim()}%`;
-		params.push(q, q, q);
+	if (trackConditions.length > 0) {
+		const subConds = trackConditions.map((c) => c.replace(/t2\./g, ''));
+		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE ${subConds.join(' AND ')})`);
+		params.push(...trackParams);
+	}
+
+	if (effectiveText && effectiveText.trim()) {
+		conditions.push('(a.title LIKE ? OR a.artist LIKE ? OR a.genre LIKE ? OR a.id IN (SELECT album_id FROM tracks WHERE title LIKE ? OR artist LIKE ?))');
+		const q = `%${effectiveText.trim()}%`;
+		params.push(q, q, q, q, q);
 	}
 
 	if (filter === 'needs_attention') {
@@ -196,7 +356,129 @@ export function getAlbums(searchQuery?: string, filter?: string): Album[] {
 
 	sql += ` GROUP BY a.id ORDER BY a.artist COLLATE NOCASE ASC, a.release_year ASC, a.title COLLATE NOCASE ASC`;
 
-	return db.prepare(sql).all(...params) as Album[];
+	const albums = db.prepare(sql).all(...params) as Album[];
+	for (const alb of albums) {
+		if (alb.fixer_rules) {
+			try {
+				alb.parsed_fixer_rules = JSON.parse(alb.fixer_rules);
+			} catch {}
+		}
+	}
+	return albums;
+}
+
+export function searchVaultTracks(
+	searchQuery?: string,
+	filters?: SearchFilters,
+	limit: number = 150,
+	offset: number = 0
+): { tracks: Track[]; total: number } {
+	const parsed = parseSearchQuery(searchQuery || '');
+	const effectiveFormat = filters?.format || parsed.format;
+	const effectiveNotFormat = filters?.notFormat || parsed.notFormat;
+	const effectiveCensorship = filters?.censorship || parsed.censorship;
+	const effectiveNotCensorship = filters?.notCensorship || parsed.notCensorship;
+	const effectiveLyrics = filters?.lyrics || parsed.lyrics;
+	const effectiveNotLyrics = filters?.notLyrics || parsed.notLyrics;
+	const effectiveQuality = filters?.quality || parsed.quality;
+	const effectiveText = filters?.search !== undefined ? filters.search : parsed.search;
+
+	let sql = `
+		SELECT 
+			t.*,
+			a.title as album_title,
+			a.artist as album_artist,
+			a.cover_url as album_cover_url,
+			a.release_year as album_year
+		FROM tracks t
+		JOIN albums a ON a.id = t.album_id
+	`;
+	let countSql = `
+		SELECT COUNT(*) as count
+		FROM tracks t
+		JOIN albums a ON a.id = t.album_id
+	`;
+
+	const conditions: string[] = [];
+	const params: (string | number)[] = [];
+
+	if (effectiveNotFormat) {
+		if (effectiveNotFormat === 'FLAC') {
+			conditions.push("t.format != 'FLAC'");
+		} else if (effectiveNotFormat === 'MP3') {
+			conditions.push("t.format NOT LIKE 'MP3%'");
+		} else {
+			conditions.push("t.format != ?");
+			params.push(effectiveNotFormat);
+		}
+	}
+
+	if (effectiveFormat) {
+		if (effectiveFormat === 'MP3') {
+			conditions.push("t.format LIKE 'MP3%'");
+		} else {
+			conditions.push("t.format = ?");
+			params.push(effectiveFormat);
+		}
+	}
+
+	if (effectiveCensorship) {
+		conditions.push("t.censorship = ?");
+		params.push(effectiveCensorship);
+	}
+	if (effectiveNotCensorship) {
+		conditions.push("t.censorship != ?");
+		params.push(effectiveNotCensorship);
+	}
+
+	if (effectiveLyrics) {
+		conditions.push("t.lyrics = ?");
+		params.push(effectiveLyrics);
+	}
+	if (effectiveNotLyrics) {
+		conditions.push("t.lyrics != ?");
+		params.push(effectiveNotLyrics);
+	}
+
+	if (effectiveQuality) {
+		if (effectiveQuality === 'bad') {
+			conditions.push("t.quality_rating IN ('bad', 'needs_upgrade')");
+		} else if (effectiveQuality === 'good') {
+			conditions.push("t.quality_rating IN ('good', 'perfect')");
+		} else {
+			conditions.push("t.quality_rating = ?");
+			params.push(effectiveQuality);
+		}
+	}
+
+	if (filters?.filter === 'needs_attention') {
+		conditions.push('t.needs_attention = 1');
+	}
+
+	if (effectiveText && effectiveText.trim()) {
+		conditions.push('(t.title LIKE ? OR t.artist LIKE ? OR a.title LIKE ? OR a.artist LIKE ?)');
+		const q = `%${effectiveText.trim()}%`;
+		params.push(q, q, q, q);
+	}
+
+	if (conditions.length > 0) {
+		const whereClause = ' WHERE ' + conditions.join(' AND ');
+		sql += whereClause;
+		countSql += whereClause;
+	}
+
+	sql += ` ORDER BY t.needs_attention DESC, a.artist COLLATE NOCASE ASC, a.title COLLATE NOCASE ASC, t.disc_number ASC, t.track_number ASC`;
+
+	const total = (db.prepare(countSql).get(...params) as { count: number }).count;
+
+	if (limit) {
+		sql += ` LIMIT ? OFFSET ?`;
+		const tracks = db.prepare(sql).all(...params, limit, offset) as Track[];
+		return { tracks, total };
+	}
+
+	const tracks = db.prepare(sql).all(...params) as Track[];
+	return { tracks, total };
 }
 
 export function getAlbumById(id: number): { album: Album; tracks: Track[] } | null {
@@ -214,6 +496,12 @@ export function getAlbumById(id: number): { album: Album; tracks: Track[] } | nu
 	`).get(id) as Album | undefined;
 
 	if (!album) return null;
+
+	if (album.fixer_rules) {
+		try {
+			album.parsed_fixer_rules = JSON.parse(album.fixer_rules);
+		} catch {}
+	}
 
 	const tracks = db.prepare(`
 		SELECT * FROM tracks
@@ -376,7 +664,8 @@ export function updateTrack(
 	const newQuality = data.quality_rating ?? current.quality_rating;
 	const newCensorship = data.censorship ?? current.censorship;
 	const newLyrics = data.lyrics ?? current.lyrics;
-	const autoNeedsAtt = computeNeedsAttention(newQuality, newCensorship, newLyrics);
+	const rules = getAlbumFixerRules(current.album_id);
+	const autoNeedsAtt = computeNeedsAttention(newQuality, newCensorship, newLyrics, newFormat, rules);
 	const needsAttention = data.needs_attention !== undefined ? data.needs_attention : autoNeedsAtt;
 
 	db.prepare(`
@@ -425,6 +714,7 @@ export function batchUpdateAlbumTracks(
 	}>
 ): void {
 	const tracks = db.prepare('SELECT * FROM tracks WHERE album_id = ?').all(albumId) as Track[];
+	const rules = getAlbumFixerRules(albumId);
 	const updateStmt = db.prepare(`
 		UPDATE tracks SET
 			format = ?,
@@ -442,7 +732,7 @@ export function batchUpdateAlbumTracks(
 			const quality = updates.quality_rating ?? track.quality_rating;
 			const censorship = updates.censorship ?? track.censorship;
 			const lyrics = updates.lyrics ?? track.lyrics;
-			const needsAtt = computeNeedsAttention(quality, censorship, lyrics);
+			const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
 			updateStmt.run(format, quality, censorship, lyrics, needsAtt, track.id);
 		}
@@ -478,7 +768,8 @@ export function addTrackToAlbum(
 	const quality = trackData.quality_rating || 'good';
 	const censorship = trackData.censorship || 'clean_original';
 	const lyrics = trackData.lyrics || 'missing';
-	const needsAtt = computeNeedsAttention(quality, censorship, lyrics);
+	const rules = getAlbumFixerRules(albumId);
+	const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
 	const result = db.prepare(`
 		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, notes)
