@@ -15,6 +15,10 @@ data/covers/*
 !data/.gitkeep
 !data/covers/.gitkeep
 
+# Music Library Folder
+music/*
+!music/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db

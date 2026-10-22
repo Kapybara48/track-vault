@@ -1,0 +1,66 @@
+import type { AudioFormat, QualityRating, CensorshipStatus, LyricsStatus } from '$lib/types/index.js';
+
+export function formatDuration(ms: number | null): string {
+	if (!ms || ms <= 0) return '--:--';
+	const totalSeconds = Math.floor(ms / 1000);
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
+
+export const FORMAT_OPTIONS: { value: AudioFormat; label: string; isLossless: boolean }[] = [
+	{ value: 'FLAC', label: 'FLAC (Lossless)', isLossless: true },
+	{ value: 'ALAC', label: 'ALAC (Apple Lossless)', isLossless: true },
+	{ value: 'WAV', label: 'WAV / AIFF', isLossless: true },
+	{ value: 'MP3_320', label: 'MP3 320 kbps', isLossless: false },
+	{ value: 'MP3_V0', label: 'MP3 V0 (~245 kbps)', isLossless: false },
+	{ value: 'MP3_192', label: 'MP3 192 kbps', isLossless: false },
+	{ value: 'MP3_128', label: 'MP3 128 kbps (Low)', isLossless: false },
+	{ value: 'AAC_256', label: 'AAC 256 kbps', isLossless: false },
+	{ value: 'OGG', label: 'OGG / Opus', isLossless: false },
+	{ value: 'OTHER', label: 'Other', isLossless: false }
+];
+
+export const QUALITY_OPTIONS: { value: QualityRating; label: string; color: string }[] = [
+	{ value: 'perfect', label: 'Perfect (Lossless/High-Res)', color: 'text-emerald-400 bg-emerald-950/60 border-emerald-800' },
+	{ value: 'good', label: 'Good (Clean 320/V0)', color: 'text-cyan-400 bg-cyan-950/60 border-cyan-800' },
+	{ value: 'acceptable', label: 'Acceptable', color: 'text-amber-300 bg-amber-950/60 border-amber-800' },
+	{ value: 'bad', label: 'Bad (Distorted / Bad Rip)', color: 'text-rose-400 bg-rose-950/60 border-rose-800' },
+	{ value: 'needs_upgrade', label: 'Needs Upgrade', color: 'text-red-400 bg-red-950/80 border-red-700 font-bold' }
+];
+
+export const CENSORSHIP_OPTIONS: { value: CensorshipStatus; label: string; shortLabel: string; color: string }[] = [
+	{ value: 'explicit', label: 'Explicit (Original)', shortLabel: 'Explicit', color: 'text-amber-300 bg-amber-950/60 border-amber-800' },
+	{ value: 'clean_original', label: 'Clean (Non-explicit)', shortLabel: 'Clean', color: 'text-neutral-300 bg-neutral-800/80 border-neutral-700' },
+	{ value: 'censored', label: 'Censored / Radio Edit (Needs Uncensored!)', shortLabel: 'Censored', color: 'text-rose-300 bg-rose-950/80 border-rose-600 font-semibold' },
+	{ value: 'instrumental', label: 'Instrumental', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' }
+];
+
+export const LYRICS_OPTIONS: { value: LyricsStatus; label: string; shortLabel: string; color: string }[] = [
+	{ value: 'synced_lrc', label: 'Synced (.lrc)', shortLabel: 'Synced LRC', color: 'text-emerald-300 bg-emerald-950/60 border-emerald-700' },
+	{ value: 'plain_txt', label: 'Plain Text (.txt)', shortLabel: 'Plain TXT', color: 'text-sky-300 bg-sky-950/60 border-sky-800' },
+	{ value: 'missing', label: 'Missing Lyrics', shortLabel: 'Missing', color: 'text-rose-400 bg-rose-950/80 border-rose-700' },
+	{ value: 'instrumental', label: 'Instrumental (N/A)', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' }
+];
+
+export function getFormatBadgeClass(format: AudioFormat): string {
+	switch (format) {
+		case 'FLAC':
+		case 'ALAC':
+		case 'WAV':
+		case 'AIFF':
+			return 'text-blue-300 bg-blue-950/70 border-blue-700';
+		case 'MP3_320':
+			return 'text-emerald-300 bg-emerald-950/60 border-emerald-800';
+		case 'MP3_V0':
+			return 'text-teal-300 bg-teal-950/60 border-teal-800';
+		case 'MP3_192':
+		case 'AAC_256':
+		case 'OGG':
+			return 'text-amber-300 bg-amber-950/60 border-amber-800';
+		case 'MP3_128':
+		case 'OTHER':
+		default:
+			return 'text-rose-300 bg-rose-950/70 border-rose-700';
+	}
+}

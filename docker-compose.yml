@@ -1,0 +1,20 @@
+services:
+  track-vault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: track-vault
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - MUSIC_DIR=/music
+      # Set to your server URL or domain (e.g. http://my-server.lan:3000 or http://localhost:3000)
+      - ORIGIN=http://localhost:3000
+    volumes:
+      - ./data:/app/data
+      # Mount your existing music library folder here (read-only for maximum safety)
+      - ${MUSIC_PATH:-./music}:/music:ro

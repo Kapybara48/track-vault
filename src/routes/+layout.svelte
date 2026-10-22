@@ -1,13 +1,31 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '#lib/assets/favicon.svg';
-	import type { LayoutProps } from './$types';
+	import Navbar from '$lib/components/Navbar.svelte';
+	import type { LayoutData } from './$types.js';
 
-	let { children }: LayoutProps = $props();
+	let { data, children }: { data: LayoutData; children: any } = $props();
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<title>Track Vault - Music Quality & Lyrics Tracker</title>
+	<meta name="description" content="Self-hosted music quality, censorship, and lyrics tracker" />
 </svelte:head>
 
-{@render children()}
+<div class="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
+	<Navbar issuesCount={data.stats.total_needs_attention} />
+
+	<main class="flex-1 pb-16">
+		{@render children()}
+	</main>
+
+	<footer class="border-t border-neutral-900 bg-neutral-950 py-6 text-center text-xs text-neutral-500">
+		<div class="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+			<p>
+				<span class="font-bold text-neutral-400">Track Vault</span> • Self-hosted with SQLite & MusicBrainz
+			</p>
+			<p class="text-[11px] text-neutral-600">
+				Track FLAC/MP3 formats, bad quality encodes, lyrics (.lrc/plain), and censored tracks.
+			</p>
+		</div>
+	</footer>
+</div>

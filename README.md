@@ -1,54 +1,111 @@
-# sv
+# 💽 Track Vault
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+**Track Vault** is a modern, self-hosted web application for music collectors and audiophiles to track and audit their music library's audio quality, format status, lyrics coverage, and censorship state.
 
-## Creating a project
+![Track Vault](https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/disc-3.svg)
 
-If you're seeing this, you've probably already done this step. Congrats!
+---
 
-```sh
-# create a new project
-npx sv create my-app
+## 🚀 Key Features
+
+- **Audio Quality & Format Auditing**:
+  - Track whether you have lossless **FLAC / ALAC / WAV** or lossy encodes (**MP3 320**, **MP3 V0**, **MP3 128**, **AAC**, **OGG**).
+  - Rate audio encode quality (*Perfect*, *Good*, *Acceptable*, *Bad / Distorted*, *Needs Upgrade*).
+- **Censorship & Clean Edits Tracking**:
+  - Mark tracks as **Explicit / Uncensored Original**, **Clean Original**, or **Censored / Radio Edit**.
+  - Highlights censored tracks so you know which ones need replacing with their original uncensored releases.
+- **Lyrics Coverage Tracking**:
+  - Track whether songs have synchronized time-coded **Synced (.lrc)** lyrics, **Plain text (.txt)**, or are **Missing lyrics**.
+  - Flag instrumental tracks where vocals aren't needed.
+- **Local Music Library Scanner**:
+  - Point Track Vault to your server's music library directory.
+  - Automatically reads audio metadata (**FLAC, MP3, M4A, OGG, WAV, etc.**).
+  - **Reads embedded MusicBrainz tags** (`musicbrainz_albumid`, `musicbrainz_trackid`, etc.) already present in your files!
+  - Automatically detects companion **`.lrc`** or **`.txt`** lyrics files right next to your audio files.
+  - **Choose what songs to add and what not**: Select/unselect individual tracks or whole albums before adding to your vault.
+- **Online MusicBrainz Search & Import**:
+  - Search releases worldwide by artist or album.
+  - Pulls complete tracklists, track durations, discs, release year, media format, and official album covers from the Cover Art Archive.
+- **Fast Batch Operations**:
+  - Bulk update all tracks on an album with 1 click (e.g. set all to FLAC or all to Synced LRC).
+- **The Fixer / Issues Dashboard**:
+  - High-level **Vault Health Score** (% of pristine tracks).
+  - Filter and tackle low-bitrate rips, censored radio edits, and missing lyrics with instant 1-click upgrades.
+
+---
+
+## 🐳 Self-Hosting with Docker
+
+The easiest way to run Track Vault on your server is with Docker Compose.
+
+### 1. Clone repository
+```bash
+git clone https://github.com/danielkrejci/track-vault.git
+cd track-vault
 ```
 
-To recreate this project with the same configuration:
+### 2. Configure Your Music Directory
+Edit `docker-compose.yml` (or create a `.env` file from `.env.example`):
 
-```sh
-# recreate this project
-npx sv@1.1.1 create --template minimal --types ts --add tailwindcss="plugins:none" sveltekit-adapter="adapter:node" --install npm .
+```yaml
+services:
+  track-vault:
+    build: .
+    container_name: track-vault
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - MUSIC_DIR=/music
+      - ORIGIN=http://localhost:3000
+    volumes:
+      # Persistent SQLite database & album covers
+      - ./data:/app/data
+      # Mount your existing music collection (read-only for safety)
+      - /path/to/your/music:/music:ro
 ```
 
-## Adding features
+> **Note**: Mount your music library with `:ro` (read-only). Track Vault will never modify, overwrite, or delete your audio files.
 
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
+### 3. Start Container
+```bash
+docker-compose up -d --build
 ```
 
-For example, to add Tailwind CSS:
+Access Track Vault in your browser at:
+`http://localhost:3000` (or `http://your-server-ip:3000`)
 
-```sh
-npx sv add tailwindcss
-```
+---
 
-## Developing
+## 🛠️ Local Development (Without Docker)
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### Prerequisites
+- Node.js 20+ or 22+ (v24 supported)
+- npm
 
-```sh
+### Installation & Run
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start development server
 npm run dev
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
+# 3. Or create production build
 npm run build
+PORT=3000 MUSIC_DIR=/path/to/music node build
 ```
 
-You can preview the production build with `npm run preview`.
+---
+
+## 🗄️ Tech Stack
+
+- **Framework**: [SvelteKit 5](https://svelte.dev) + TypeScript
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com)
+- **Database**: [SQLite](https://sqlite.org) via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) with WAL mode enabled
+- **Metadata Parsing**: [music-metadata](https://github.com/Borewit/music-metadata) (FLAC, ID3v2, Vorbis, MP4)
+- **Metadata Database**: [MusicBrainz API](https://musicbrainz.org) & [Cover Art Archive](https://coverartarchive.org)
+- **Icons**: [@lucide/svelte](https://lucide.dev)

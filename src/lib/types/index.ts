@@ -119,3 +119,46 @@ export interface MusicBrainzReleaseDetail {
 	media_type: string | null;
 	tracks: MusicBrainzReleaseTrack[];
 }
+
+export interface ScannedTrack {
+	file_path: string;
+	file_name: string;
+	title: string;
+	artist: string;
+	album: string;
+	year: number | null;
+	track_number: number;
+	disc_number: number;
+	duration_ms: number | null;
+	format: AudioFormat;
+	bitrate_kbps: number | null;
+	sample_rate: number | null;
+	bits_per_sample: number | null;
+	quality_rating: QualityRating;
+	censorship: CensorshipStatus;
+	lyrics: LyricsStatus;
+	has_lrc_file: boolean;
+	has_txt_file: boolean;
+	musicbrainz_album_id: string | null;
+	musicbrainz_track_id: string | null;
+	musicbrainz_artist_id: string | null;
+	musicbrainz_releasegroup_id: string | null;
+	selected: boolean;
+}
+
+export interface ScannedAlbum {
+	album_key: string;
+	title: string;
+	artist: string;
+	year: number | null;
+	folder_path: string;
+	musicbrainz_id: string | null;
+	cover_url: string | null;
+	track_count: number;
+	has_flac: boolean;
+	has_lrc: boolean;
+	already_in_vault: boolean;
+	tracks: ScannedTrack[];
+	selected: boolean;
+}
+
