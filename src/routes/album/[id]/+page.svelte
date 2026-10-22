@@ -80,6 +80,10 @@
 		tracks.filter(t => t.lyrics === 'missing').length
 	);
 
+	const unsyncedLyricsCount = $derived(
+		tracks.filter(t => t.lyrics === 'unsynced_lrc').length
+	);
+
 	const issuesCount = $derived(
 		tracks.filter(t => t.needs_attention === 1).length
 	);
@@ -266,13 +270,13 @@
 			<div class="flex flex-1 flex-col justify-between self-stretch">
 				<div>
 					<div class="flex flex-wrap items-center gap-2">
-						<span class="text-xs font-bold uppercase tracking-widest text-purple-400">Album</span>
+						<span class="text-xs font-bold uppercase tracking-widest text-emerald-400">Album</span>
 						{#if album.musicbrainz_id}
 							<a
 								href="https://musicbrainz.org/release/{album.musicbrainz_id}"
 								target="_blank"
 								rel="noreferrer"
-								class="inline-flex items-center gap-1 rounded bg-neutral-800/80 px-2 py-0.5 text-[11px] text-neutral-400 hover:text-purple-300 border border-neutral-700/60"
+								class="inline-flex items-center gap-1 rounded bg-neutral-800/80 px-2 py-0.5 text-[11px] text-neutral-400 hover:text-emerald-300 border border-neutral-700/60"
 								title="View on MusicBrainz"
 							>
 								<span>MusicBrainz</span>
@@ -345,6 +349,12 @@
 							{missingLyricsCount} Missing Lyrics
 						</span>
 					{/if}
+
+					{#if unsyncedLyricsCount > 0}
+						<span class="rounded-lg bg-amber-950/70 px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-800">
+							{unsyncedLyricsCount} Unsynced LRC
+						</span>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -355,7 +365,7 @@
 				<button
 					type="button"
 					onclick={() => (showBatchModal = true)}
-					class="flex items-center gap-1.5 rounded-xl bg-purple-600/90 hover:bg-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow transition"
+					class="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow shadow-emerald-600/30 hover:bg-emerald-500 transition"
 				>
 					<Layers class="h-4 w-4" />
 					Batch Update Tracks
@@ -407,7 +417,7 @@
 	<section class="mt-8">
 		<div class="mb-4 flex items-center justify-between">
 			<h2 class="text-lg font-bold text-neutral-100 flex items-center gap-2">
-				<Music class="h-5 w-5 text-purple-400" />
+				<Music class="h-5 w-5 text-emerald-400" />
 				Tracklist ({displayedTracks.length})
 			</h2>
 
@@ -420,7 +430,7 @@
 			<div class="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/30">
 				{#each discGroups as group (group.disc)}
 					{#if discGroups.length > 1}
-						<div class="border-b border-neutral-800 bg-neutral-900/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+						<div class="border-b border-neutral-800 bg-neutral-900/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
 							<Disc3 class="h-3.5 w-3.5" />
 							Disc {group.disc}
 						</div>
@@ -448,7 +458,7 @@
 					<button
 						type="button"
 						onclick={() => (showAddTrackModal = true)}
-						class="mt-3 inline-flex items-center gap-1 rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white"
+						class="mt-3 inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition"
 					>
 						<Plus class="h-4 w-4" /> Add Track
 					</button>
@@ -464,7 +474,7 @@
 		<div class="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl">
 			<div class="flex items-center justify-between border-b border-neutral-800 pb-4">
 				<h3 class="text-base font-bold text-white flex items-center gap-2">
-					<Layers class="h-5 w-5 text-purple-400" />
+					<Layers class="h-5 w-5 text-emerald-400" />
 					Batch Update All Tracks
 				</h3>
 				<button type="button" onclick={() => (showBatchModal = false)} class="text-neutral-400 hover:text-white">
@@ -481,7 +491,7 @@
 					<label class="block text-xs font-semibold text-neutral-300 mb-1">Set Audio Format</label>
 					<select
 						bind:value={batchFormat}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					>
 						<option value="">-- Keep Current Format --</option>
 						{#each FORMAT_OPTIONS as opt}
@@ -494,7 +504,7 @@
 					<label class="block text-xs font-semibold text-neutral-300 mb-1">Set Audio Quality</label>
 					<select
 						bind:value={batchQuality}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					>
 						<option value="">-- Keep Current Quality --</option>
 						{#each QUALITY_OPTIONS as opt}
@@ -507,7 +517,7 @@
 					<label class="block text-xs font-semibold text-neutral-300 mb-1">Set Censorship Status</label>
 					<select
 						bind:value={batchCensorship}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					>
 						<option value="">-- Keep Current Censorship --</option>
 						{#each CENSORSHIP_OPTIONS as opt}
@@ -520,7 +530,7 @@
 					<label class="block text-xs font-semibold text-neutral-300 mb-1">Set Lyrics Status</label>
 					<select
 						bind:value={batchLyrics}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					>
 						<option value="">-- Keep Current Lyrics --</option>
 						{#each LYRICS_OPTIONS as opt}
@@ -542,7 +552,7 @@
 					type="button"
 					onclick={submitBatchUpdate}
 					disabled={isBatchSubmitting}
-					class="rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-500 shadow-md shadow-purple-600/30"
+					class="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30 transition"
 				>
 					{isBatchSubmitting ? 'Updating...' : 'Apply to All Tracks'}
 				</button>
@@ -557,7 +567,7 @@
 		<div class="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
 			<div class="flex items-center justify-between border-b border-neutral-800 pb-4">
 				<h3 class="text-base font-bold text-white flex items-center gap-2">
-					<Pencil class="h-4 w-4 text-purple-400" />
+					<Pencil class="h-4 w-4 text-emerald-400" />
 					Edit Album Info
 				</h3>
 				<button type="button" onclick={() => (showEditAlbumModal = false)} class="text-neutral-400 hover:text-white">
@@ -571,7 +581,7 @@
 					<input
 						type="text"
 						bind:value={editTitle}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -580,7 +590,7 @@
 					<input
 						type="text"
 						bind:value={editArtist}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -591,7 +601,7 @@
 							type="number"
 							bind:value={editYear}
 							placeholder="e.g. 1994"
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						/>
 					</div>
 
@@ -599,7 +609,7 @@
 						<label class="block text-xs font-semibold text-neutral-300 mb-1">Media Type</label>
 						<select
 							bind:value={editMediaType}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						>
 							<option value="Digital">Digital / Web</option>
 							<option value="CD">CD</option>
@@ -615,7 +625,7 @@
 						type="text"
 						bind:value={editGenre}
 						placeholder="e.g. Electronic, Synthpop, Rock"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -625,7 +635,7 @@
 						type="url"
 						bind:value={editCoverUrl}
 						placeholder="https://..."
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -635,7 +645,7 @@
 						bind:value={editNotes}
 						rows="2"
 						placeholder="Notes about release, origin, or rip details..."
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					></textarea>
 				</div>
 			</div>
@@ -651,7 +661,7 @@
 				<button
 					type="button"
 					onclick={submitEditAlbum}
-					class="rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-500"
+					class="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30 transition"
 				>
 					Save Changes
 				</button>
@@ -666,7 +676,7 @@
 		<div class="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
 			<div class="flex items-center justify-between border-b border-neutral-800 pb-4">
 				<h3 class="text-base font-bold text-white flex items-center gap-2">
-					<Plus class="h-4 w-4 text-purple-400" />
+					<Plus class="h-4 w-4 text-emerald-400" />
 					Add Track
 				</h3>
 				<button type="button" onclick={() => (showAddTrackModal = false)} class="text-neutral-400 hover:text-white">
@@ -681,7 +691,7 @@
 						type="text"
 						bind:value={newTrackTitle}
 						placeholder="Track name"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -691,7 +701,7 @@
 						<input
 							type="number"
 							bind:value={newTrackNumber}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						/>
 					</div>
 
@@ -700,7 +710,7 @@
 						<input
 							type="number"
 							bind:value={newTrackDisc}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						/>
 					</div>
 				</div>
@@ -712,7 +722,7 @@
 							type="text"
 							bind:value={newTrackArtist}
 							placeholder="Leave blank if same as album"
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						/>
 					</div>
 
@@ -722,7 +732,7 @@
 							type="text"
 							bind:value={newTrackDuration}
 							placeholder="3:45"
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						/>
 					</div>
 				</div>
@@ -732,7 +742,7 @@
 						<label class="block text-xs font-semibold text-neutral-300 mb-1">Format</label>
 						<select
 							bind:value={newTrackFormat}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						>
 							{#each FORMAT_OPTIONS as opt}
 								<option value={opt.value}>{opt.label}</option>
@@ -744,7 +754,7 @@
 						<label class="block text-xs font-semibold text-neutral-300 mb-1">Audio Quality</label>
 						<select
 							bind:value={newTrackQuality}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						>
 							{#each QUALITY_OPTIONS as opt}
 								<option value={opt.value}>{opt.label}</option>
@@ -758,7 +768,7 @@
 						<label class="block text-xs font-semibold text-neutral-300 mb-1">Censorship</label>
 						<select
 							bind:value={newTrackCensorship}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						>
 							{#each CENSORSHIP_OPTIONS as opt}
 								<option value={opt.value}>{opt.label}</option>
@@ -770,7 +780,7 @@
 						<label class="block text-xs font-semibold text-neutral-300 mb-1">Lyrics</label>
 						<select
 							bind:value={newTrackLyrics}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						>
 							{#each LYRICS_OPTIONS as opt}
 								<option value={opt.value}>{opt.label}</option>
@@ -792,7 +802,7 @@
 					type="button"
 					onclick={submitAddTrack}
 					disabled={!newTrackTitle.trim()}
-					class="rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-500 disabled:opacity-50"
+					class="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 shadow-md shadow-emerald-600/30 transition"
 				>
 					Add Track
 				</button>

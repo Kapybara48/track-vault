@@ -38,6 +38,7 @@ export const CENSORSHIP_OPTIONS: { value: CensorshipStatus; label: string; short
 
 export const LYRICS_OPTIONS: { value: LyricsStatus; label: string; shortLabel: string; color: string }[] = [
 	{ value: 'synced_lrc', label: 'Synced (.lrc)', shortLabel: 'Synced LRC', color: 'text-emerald-300 bg-emerald-950/60 border-emerald-700' },
+	{ value: 'unsynced_lrc', label: 'Unsynced / Shifted (.lrc)', shortLabel: 'Unsynced LRC', color: 'text-amber-300 bg-amber-950/70 border-amber-700/80 font-medium' },
 	{ value: 'plain_txt', label: 'Plain Text (.txt)', shortLabel: 'Plain TXT', color: 'text-sky-300 bg-sky-950/60 border-sky-800' },
 	{ value: 'missing', label: 'Missing Lyrics', shortLabel: 'Missing', color: 'text-rose-400 bg-rose-950/80 border-rose-700' },
 	{ value: 'instrumental', label: 'Instrumental (N/A)', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' }

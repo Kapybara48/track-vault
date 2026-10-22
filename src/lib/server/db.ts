@@ -80,8 +80,8 @@ export function computeNeedsAttention(
 ): number {
 	const badQuality = quality === 'bad' || quality === 'needs_upgrade';
 	const isCensored = censorship === 'censored';
-	const missingLyrics = lyrics === 'missing';
-	return badQuality || isCensored || missingLyrics ? 1 : 0;
+	const needsLyricsFix = lyrics === 'missing' || lyrics === 'unsynced_lrc';
+	return badQuality || isCensored || needsLyricsFix ? 1 : 0;
 }
 
 export function getStats(): CollectionStats {
@@ -99,6 +99,7 @@ export function getStats(): CollectionStats {
 			censored_count: 0,
 			missing_lyrics_count: 0,
 			synced_lyrics_count: 0,
+			unsynced_lyrics_count: 0,
 			plain_lyrics_count: 0,
 			total_needs_attention: 0,
 			health_score: 100
@@ -119,6 +120,7 @@ export function getStats(): CollectionStats {
 			SUM(CASE WHEN censorship = 'censored' THEN 1 ELSE 0 END) as censored,
 			SUM(CASE WHEN lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics,
 			SUM(CASE WHEN lyrics = 'synced_lrc' THEN 1 ELSE 0 END) as synced_lyrics,
+			SUM(CASE WHEN lyrics = 'unsynced_lrc' THEN 1 ELSE 0 END) as unsynced_lyrics,
 			SUM(CASE WHEN lyrics = 'plain_txt' THEN 1 ELSE 0 END) as plain_lyrics,
 			SUM(CASE WHEN needs_attention = 1 THEN 1 ELSE 0 END) as needs_attention
 		FROM tracks
@@ -127,6 +129,7 @@ export function getStats(): CollectionStats {
 		censored: number;
 		missing_lyrics: number;
 		synced_lyrics: number;
+		unsynced_lyrics: number;
 		plain_lyrics: number;
 		needs_attention: number;
 	};
@@ -145,6 +148,7 @@ export function getStats(): CollectionStats {
 		censored_count: issueCounts.censored || 0,
 		missing_lyrics_count: issueCounts.missing_lyrics || 0,
 		synced_lyrics_count: issueCounts.synced_lyrics || 0,
+		unsynced_lyrics_count: issueCounts.unsynced_lyrics || 0,
 		plain_lyrics_count: issueCounts.plain_lyrics || 0,
 		total_needs_attention: issueCounts.needs_attention || 0,
 		health_score: healthScore
@@ -180,6 +184,8 @@ export function getAlbums(searchQuery?: string, filter?: string): Album[] {
 		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE censorship = 'censored')`);
 	} else if (filter === 'missing_lyrics') {
 		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE lyrics = 'missing')`);
+	} else if (filter === 'unsynced_lyrics') {
+		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE lyrics = 'unsynced_lrc')`);
 	} else if (filter === 'all_good') {
 		conditions.push(`a.id NOT IN (SELECT album_id FROM tracks WHERE needs_attention = 1) AND a.id IN (SELECT album_id FROM tracks)`);
 	}
@@ -534,6 +540,8 @@ export function getIssuesTracks(params?: {
 		conditions.push("t.censorship = 'censored'");
 	} else if (params?.issueType === 'missing_lyrics') {
 		conditions.push("t.lyrics = 'missing'");
+	} else if (params?.issueType === 'unsynced_lyrics') {
+		conditions.push("t.lyrics = 'unsynced_lrc'");
 	} else if (params?.issueType === 'all_issues') {
 		conditions.push('t.needs_attention = 1');
 	} else if (params?.issueType === 'good') {

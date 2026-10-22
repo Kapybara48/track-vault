@@ -19,28 +19,82 @@
 		Sparkles,
 		Disc,
 		ExternalLink,
-		ArrowRight
+		ArrowRight,
+		Filter,
+		RotateCcw
 	} from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
 
 	let tracks = $state<Track[]>([...data.tracks]);
-	let searchQuery = $state(data.searchQuery);
+
+	// Local interactive search & filters
+	let localSearch = $state(data.searchQuery || '');
+	let localCensorship = $state<string>('all');
+	let localLyrics = $state<string>('all');
+	let localQuality = $state<string>('all');
+	let localFormat = $state<string>('all');
 
 	$effect(() => {
 		tracks = [...data.tracks];
 	});
 
-	function handleSearch(e: Event) {
-		e.preventDefault();
-		const params = new URLSearchParams(window.location.search);
-		if (searchQuery.trim()) {
-			params.set('q', searchQuery.trim());
-		} else {
-			params.delete('q');
-		}
-		goto(`/issues?${params.toString()}`);
+	// Client-side computed filtered list
+	const filteredTracks = $derived.by(() => {
+		return tracks.filter((t) => {
+			// Search text filter
+			if (localSearch.trim()) {
+				const q = localSearch.trim().toLowerCase();
+				const titleMatch = t.title.toLowerCase().includes(q);
+				const artistMatch = (t.artist || '').toLowerCase().includes(q);
+				const albumTitleMatch = (t.album_title || '').toLowerCase().includes(q);
+				const albumArtistMatch = (t.album_artist || '').toLowerCase().includes(q);
+				if (!titleMatch && !artistMatch && !albumTitleMatch && !albumArtistMatch) {
+					return false;
+				}
+			}
+
+			// Censorship filter
+			if (localCensorship !== 'all' && t.censorship !== localCensorship) {
+				return false;
+			}
+
+			// Lyrics filter
+			if (localLyrics !== 'all' && t.lyrics !== localLyrics) {
+				return false;
+			}
+
+			// Quality filter
+			if (localQuality !== 'all') {
+				if (localQuality === 'issues') {
+					if (t.quality_rating !== 'bad' && t.quality_rating !== 'needs_upgrade') return false;
+				} else if (t.quality_rating !== localQuality) {
+					return false;
+				}
+			}
+
+			// Format filter
+			if (localFormat !== 'all') {
+				if (localFormat === 'lossless') {
+					if (!['FLAC', 'ALAC', 'WAV', 'AIFF'].includes(t.format)) return false;
+				} else if (localFormat === 'mp3') {
+					if (!t.format.startsWith('MP3')) return false;
+				} else if (t.format !== localFormat) {
+					return false;
+				}
+			}
+
+			return true;
+		});
+	});
+
+	function resetFilters() {
+		localSearch = '';
+		localCensorship = 'all';
+		localLyrics = 'all';
+		localQuality = 'all';
+		localFormat = 'all';
 	}
 
 	function setIssueType(type: string) {
@@ -60,9 +114,8 @@
 			if (res.ok) {
 				const resData = await res.json();
 				const updated: Track = resData.track;
-				const idx = tracks.findIndex(t => t.id === trackId);
+				const idx = tracks.findIndex((t) => t.id === trackId);
 				if (idx !== -1) {
-					// If filtering by specific issue and it's resolved, remove or update
 					tracks[idx] = updated;
 				}
 				await invalidateAll();
@@ -76,24 +129,24 @@
 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400">
-			<TriangleAlert class="h-4 w-4 text-amber-400" />
+		<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-400">
+			<TriangleAlert class="h-4 w-4 text-emerald-400" />
 			Track Vault Fixer
 		</div>
 		<h1 class="mt-1 text-2xl sm:text-3xl font-black text-white">
 			Collection Upgrade & Issues Tracker
 		</h1>
 		<p class="mt-1 text-sm text-neutral-400 max-w-2xl">
-			Quickly resolve songs with bad audio quality, replaced censored radio edits with original uncensored releases, and fill in missing synchronized (.lrc) or plain lyrics.
+			Quickly resolve songs with bad audio quality, replace censored radio edits with original uncensored releases, and fix missing or unsynced (.lrc) lyrics.
 		</p>
 	</div>
 
-	<!-- Issue Type Tabs -->
+	<!-- Top Issue Type Tabs -->
 	<div class="mb-6 flex flex-wrap items-center gap-2 border-b border-neutral-800 pb-4">
 		<button
 			type="button"
 			onclick={() => setIssueType('all_issues')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'all_issues' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'all_issues' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
 			<TriangleAlert class="h-4 w-4" />
 			All Issues ({data.stats.total_needs_attention})
@@ -125,30 +178,112 @@
 			<FileText class="h-4 w-4" />
 			Missing Lyrics ({data.stats.missing_lyrics_count})
 		</button>
+
+		<button
+			type="button"
+			onclick={() => setIssueType('unsynced_lyrics')}
+			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'unsynced_lyrics' ? 'bg-amber-700 text-white shadow-md shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+		>
+			<FileText class="h-4 w-4 text-amber-300" />
+			Unsynced LRC ({data.stats.unsynced_lyrics_count})
+		</button>
 	</div>
 
-	<!-- Search & Controls -->
-	<div class="mb-6 flex flex-col sm:flex-row gap-3 items-center justify-between">
-		<form onsubmit={handleSearch} class="relative w-full sm:w-80">
-			<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-			<input
-				type="text"
-				bind:value={searchQuery}
-				placeholder="Search track, artist, album..."
-				class="w-full rounded-xl border border-neutral-800 bg-neutral-900/80 pl-10 pr-4 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-			/>
-		</form>
+	<!-- Local Multi-Criteria Filter & Search Toolbar -->
+	<div class="mb-6 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-lg backdrop-blur">
+		<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+			<!-- Instant Text Search Input -->
+			<div class="relative flex-1">
+				<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+				<input
+					type="text"
+					bind:value={localSearch}
+					placeholder="Instant filter by song title, artist, or album..."
+					class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-10 pr-4 py-2 text-xs sm:text-sm text-neutral-100 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				/>
+			</div>
 
-		<span class="text-xs text-neutral-500">
-			Showing {tracks.length} matching track{tracks.length === 1 ? '' : 's'}
-		</span>
+			<!-- Filter Selects -->
+			<div class="flex flex-wrap items-center gap-2">
+				<!-- Censorship Filter -->
+				<select
+					bind:value={localCensorship}
+					class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				>
+					<option value="all">All Censorship</option>
+					<option value="censored">Censored Only</option>
+					<option value="explicit">Explicit Only</option>
+					<option value="clean_original">Clean Original</option>
+				</select>
+
+				<!-- Lyrics Filter -->
+				<select
+					bind:value={localLyrics}
+					class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				>
+					<option value="all">All Lyrics</option>
+					<option value="missing">Missing Lyrics</option>
+					<option value="unsynced_lrc">Unsynced .LRC</option>
+					<option value="plain_txt">Plain TXT</option>
+					<option value="synced_lrc">Synced .LRC</option>
+					<option value="instrumental">Instrumental</option>
+				</select>
+
+				<!-- Quality Filter -->
+				<select
+					bind:value={localQuality}
+					class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				>
+					<option value="all">All Qualities</option>
+					<option value="issues">Bad / Needs Upgrade</option>
+					<option value="good">Good</option>
+					<option value="perfect">Perfect</option>
+					<option value="acceptable">Acceptable</option>
+				</select>
+
+				<!-- Format Filter -->
+				<select
+					bind:value={localFormat}
+					class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				>
+					<option value="all">All Formats</option>
+					<option value="lossless">FLAC / Lossless</option>
+					<option value="mp3">MP3 Any Bitrate</option>
+					<option value="MP3_320">MP3 320kbps</option>
+					<option value="MP3_128">MP3 128kbps (Bad)</option>
+				</select>
+
+				{#if localSearch || localCensorship !== 'all' || localLyrics !== 'all' || localQuality !== 'all' || localFormat !== 'all'}
+					<button
+						type="button"
+						onclick={resetFilters}
+						class="flex items-center gap-1 rounded-xl bg-neutral-800 px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-neutral-700 hover:text-white transition"
+						title="Reset all filters"
+					>
+						<RotateCcw class="h-3 w-3" />
+						Reset
+					</button>
+				{/if}
+			</div>
+		</div>
+
+		<div class="mt-2.5 flex items-center justify-between text-xs text-neutral-400">
+			<span>
+				Showing <strong class="text-emerald-400 font-bold">{filteredTracks.length}</strong> of {tracks.length} loaded songs
+			</span>
+			{#if filteredTracks.length < tracks.length}
+				<span class="text-[11px] text-amber-400">
+					Filters active
+				</span>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Track Issues Table -->
-	{#if tracks.length > 0}
+	{#if filteredTracks.length > 0}
 		<div class="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/30">
 			<div class="divide-y divide-neutral-800/60">
-				{#each tracks as track (track.id)}
+				{#each filteredTracks as track (track.id)}
 					<div class="group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 transition hover:bg-neutral-900/50">
 						<!-- Track & Album Info -->
 						<div class="flex items-center gap-4 min-w-0 flex-1">
@@ -188,7 +323,7 @@
 									<span>•</span>
 									<a
 										href="/album/{track.album_id}"
-										class="truncate hover:text-purple-300 transition"
+										class="truncate hover:text-emerald-300 transition"
 										title="Open album"
 									>
 										{track.album_title}
@@ -238,9 +373,14 @@
 								{#if track.lyrics === 'synced_lrc'}
 									<CheckCircle2 class="h-3 w-3 text-emerald-400" />
 									<span>Synced LRC</span>
+								{:else if track.lyrics === 'unsynced_lrc'}
+									<FileText class="h-3 w-3 text-amber-300" />
+									<span>Unsynced LRC</span>
 								{:else if track.lyrics === 'plain_txt'}
 									<FileText class="h-3 w-3 text-sky-400" />
 									<span>Plain TXT</span>
+								{:else if track.lyrics === 'instrumental'}
+									<span>Instrumental</span>
 								{:else}
 									<TriangleAlert class="h-3 w-3 text-rose-400" />
 									<span>No Lyrics</span>
@@ -253,7 +393,7 @@
 									<button
 										type="button"
 										onclick={() => quickFix(track.id, { format: 'FLAC', quality_rating: 'good' })}
-										class="rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-700/80 px-2.5 py-1 text-xs font-semibold text-blue-300 transition active:scale-95"
+										class="rounded-lg bg-teal-950/80 hover:bg-teal-900 border border-teal-700/80 px-2.5 py-1 text-xs font-semibold text-teal-300 transition active:scale-95"
 										title="Mark as upgraded to FLAC lossless"
 									>
 										+ FLAC
@@ -271,23 +411,25 @@
 									</button>
 								{/if}
 
-								{#if track.lyrics === 'missing'}
+								{#if track.lyrics === 'missing' || track.lyrics === 'unsynced_lrc'}
 									<button
 										type="button"
 										onclick={() => quickFix(track.id, { lyrics: 'synced_lrc' })}
 										class="rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition active:scale-95"
-										title="Mark as added synced .LRC lyrics"
+										title="Mark as synced .LRC lyrics"
 									>
 										+ Synced LRC
 									</button>
-									<button
-										type="button"
-										onclick={() => quickFix(track.id, { lyrics: 'plain_txt' })}
-										class="rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-700/80 px-2 py-1 text-xs font-semibold text-sky-300 transition active:scale-95"
-										title="Mark as plain text lyrics"
-									>
-										+ Plain
-									</button>
+									{#if track.lyrics === 'missing'}
+										<button
+											type="button"
+											onclick={() => quickFix(track.id, { lyrics: 'plain_txt' })}
+											class="rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-700/80 px-2 py-1 text-xs font-semibold text-sky-300 transition active:scale-95"
+											title="Mark as plain text lyrics"
+										>
+											+ Plain
+										</button>
+									{/if}
 								{/if}
 
 								<a
@@ -306,16 +448,26 @@
 	{:else}
 		<div class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-neutral-800 py-16 text-center">
 			<CheckCircle2 class="h-12 w-12 text-emerald-400 mb-3" />
-			<h3 class="text-lg font-bold text-white">All Clear in this Category!</h3>
+			<h3 class="text-lg font-bold text-white">No Tracks Match These Criteria!</h3>
 			<p class="mt-1 text-xs text-neutral-400 max-w-sm">
-				No tracks currently match this issue filter. Your Track Vault is looking pristine!
+				Try adjusting your filters or search terms.
 			</p>
-			<a
-				href="/"
-				class="mt-4 rounded-xl bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700"
-			>
-				Return to Vault
-			</a>
+			{#if localSearch || localCensorship !== 'all' || localLyrics !== 'all' || localQuality !== 'all' || localFormat !== 'all'}
+				<button
+					type="button"
+					onclick={resetFilters}
+					class="mt-4 rounded-xl bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700"
+				>
+					Clear Local Filters
+				</button>
+			{:else}
+				<a
+					href="/"
+					class="mt-4 rounded-xl bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700"
+				>
+					Return to Vault
+				</a>
+			{/if}
 		</div>
 	{/if}
 </div>

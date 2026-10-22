@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		issueType,
 		format,
 		search,
-		limit: 100
+		limit: 500
 	});
 
 	const stats = getStats();

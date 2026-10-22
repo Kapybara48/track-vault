@@ -26,6 +26,7 @@ export type CensorshipStatus =
 
 export type LyricsStatus =
 	| 'synced_lrc'    // Synced time-coded .lrc
+	| 'unsynced_lrc'  // Unsynced .lrc (timestamps shifted / out of sync)
 	| 'plain_txt'     // Plain unsynced text
 	| 'missing'       // Missing lyrics
 	| 'instrumental'; // No lyrics needed
@@ -82,6 +83,7 @@ export interface CollectionStats {
 	censored_count: number;
 	missing_lyrics_count: number;
 	synced_lyrics_count: number;
+	unsynced_lyrics_count: number;
 	plain_lyrics_count: number;
 	total_needs_attention: number;
 	health_score: number; // 0 - 100%

@@ -37,6 +37,7 @@
 
 	// --- MusicBrainz Search State ---
 	let mbQuery = $state('');
+	let mbArtist = $state('');
 	let isSearching = $state(false);
 	let searchResults = $state<MusicBrainzReleaseItem[]>([]);
 	let searchError = $state<string | null>(null);
@@ -81,18 +82,20 @@
 
 	// Search MusicBrainz
 	async function searchMB() {
-		if (!mbQuery.trim()) return;
+		if (!mbQuery.trim() && !mbArtist.trim()) return;
 		isSearching = true;
 		searchError = null;
 		searchResults = [];
 		selectedRelease = null;
 
 		try {
-			const res = await fetch(`/api/musicbrainz/search?q=${encodeURIComponent(mbQuery.trim())}`);
+			const qParam = encodeURIComponent(mbQuery.trim());
+			const artistParam = encodeURIComponent(mbArtist.trim());
+			const res = await fetch(`/api/musicbrainz/search?q=${qParam}&artist=${artistParam}`);
 			if (!res.ok) throw new Error('Search failed');
 			searchResults = await res.json();
 			if (searchResults.length === 0) {
-				searchError = 'No releases found on MusicBrainz. Try searching with both artist and album name.';
+				searchError = 'No releases found on MusicBrainz. Try refining album title or artist name.';
 			}
 		} catch (err: any) {
 			searchError = 'Failed to connect to MusicBrainz. Please try again.';
@@ -321,14 +324,14 @@
 			href="/scan"
 			class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
 		>
-			<FolderSync class="h-4 w-4 text-purple-400" />
+			<FolderSync class="h-4 w-4 text-emerald-400" />
 			Scan Server Files (FLAC/MP3)
 		</a>
 
 		<button
 			type="button"
 			onclick={() => (activeTab = 'musicbrainz')}
-			class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition {activeTab === 'musicbrainz' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'text-neutral-400 hover:text-white'}"
+			class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition {activeTab === 'musicbrainz' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' : 'text-neutral-400 hover:text-white'}"
 		>
 			<Sparkles class="h-4 w-4" />
 			Import from MusicBrainz
@@ -337,7 +340,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'manual')}
-			class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition {activeTab === 'manual' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'text-neutral-400 hover:text-white'}"
+			class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition {activeTab === 'manual' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' : 'text-neutral-400 hover:text-white'}"
 		>
 			<Disc class="h-4 w-4" />
 			Add Manually / Paste Tracklist
@@ -349,9 +352,9 @@
 		<div class="space-y-6">
 			<!-- Search Bar -->
 			<div class="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-6 shadow-xl">
-				<h2 class="text-base font-bold text-white mb-2">Search MusicBrainz Database</h2>
+				<h2 class="text-base font-bold text-white mb-1">Search MusicBrainz Database</h2>
 				<p class="text-xs text-neutral-400 mb-4">
-					Enter album title and artist (e.g. <span class="text-purple-300">"Abbey Road The Beatles"</span> or <span class="text-purple-300">"Discovery Daft Punk"</span>)
+					Enter album title and artist for high accuracy (e.g. Title: <span class="text-emerald-400">Kamikaze</span>, Artist: <span class="text-emerald-400">Eminem</span>)
 				</p>
 
 				<form
@@ -359,25 +362,40 @@
 						e.preventDefault();
 						searchMB();
 					}}
-					class="flex flex-col sm:flex-row gap-3"
+					class="flex flex-col gap-3"
 				>
-					<div class="relative flex-1">
-						<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-						<input
-							type="text"
-							bind:value={mbQuery}
-							placeholder="e.g. Discovery Daft Punk"
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-10 pr-4 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-						/>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<!-- Album Title Input -->
+						<div class="relative">
+							<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+							<input
+								type="text"
+								bind:value={mbQuery}
+								placeholder="Album title (e.g. Kamikaze)"
+								class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-10 pr-4 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+							/>
+						</div>
+
+						<!-- Artist Name Input -->
+						<div class="relative">
+							<input
+								type="text"
+								bind:value={mbArtist}
+								placeholder="Artist name (optional, e.g. Eminem)"
+								class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+							/>
+						</div>
 					</div>
 
-					<button
-						type="submit"
-						disabled={isSearching || !mbQuery.trim()}
-						class="rounded-xl bg-purple-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition hover:bg-purple-500 disabled:opacity-50"
-					>
-						{isSearching ? 'Searching...' : 'Search Releases'}
-					</button>
+					<div class="flex justify-end">
+						<button
+							type="submit"
+							disabled={isSearching || (!mbQuery.trim() && !mbArtist.trim())}
+							class="rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
+						>
+							{isSearching ? 'Searching...' : 'Search Releases'}
+						</button>
+					</div>
 				</form>
 
 				{#if searchError}
@@ -398,7 +416,7 @@
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[600px] overflow-y-auto pr-1">
 						{#each searchResults as rel}
 							<div
-								class="flex items-center justify-between gap-4 rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3.5 transition hover:border-purple-500/50 hover:bg-neutral-900"
+								class="flex items-center justify-between gap-4 rounded-2xl border border-neutral-800 bg-neutral-950/60 p-3.5 transition hover:border-emerald-500/50 hover:bg-neutral-900"
 							>
 								<div class="flex items-center gap-3 min-w-0">
 									<!-- Cover Thumbnail -->
@@ -442,7 +460,7 @@
 									type="button"
 									onclick={() => selectMBRelease(rel.id)}
 									disabled={isLoadingRelease}
-									class="shrink-0 rounded-xl bg-purple-600/80 hover:bg-purple-600 px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95"
+									class="shrink-0 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95 shadow-sm shadow-emerald-600/20"
 								>
 									Select
 								</button>
@@ -455,7 +473,7 @@
 			<!-- Loading State for Release Details -->
 			{#if isLoadingRelease}
 				<div class="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-12 text-center">
-					<Disc3 class="mx-auto h-8 w-8 text-purple-400 animate-spin mb-3" />
+					<Disc3 class="mx-auto h-8 w-8 text-emerald-400 animate-spin mb-3" />
 					<p class="text-sm font-semibold text-neutral-200">Fetching tracklist from MusicBrainz...</p>
 				</div>
 			{/if}
@@ -464,7 +482,7 @@
 			{#if selectedRelease}
 				<div class="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-6 sm:p-8 shadow-2xl">
 					<div class="flex items-center justify-between border-b border-neutral-800 pb-4 mb-6">
-						<span class="text-xs font-bold uppercase tracking-wider text-purple-400">Review & Configure Vault Import</span>
+						<span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Review & Configure Vault Import</span>
 						<button
 							type="button"
 							onclick={() => (selectedRelease = null)}
@@ -502,9 +520,9 @@
 						</div>
 					</div>
 
-					<!-- Defaults Section (User request: choose FLAC or MP3, lyrics LRC or plain) -->
+					<!-- Defaults Section -->
 					<div class="mt-8 rounded-2xl border border-neutral-800 bg-neutral-950/80 p-5">
-						<h4 class="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5">
+						<h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1.5">
 							<Layers class="h-4 w-4" />
 							Set What You Currently Have In Your Vault:
 						</h4>
@@ -518,7 +536,7 @@
 								<label class="block text-xs font-semibold text-neutral-300 mb-1.5">Audio Format</label>
 								<select
 									bind:value={mbDefaultFormat}
-									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold uppercase text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold uppercase text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 								>
 									{#each FORMAT_OPTIONS as opt}
 										<option value={opt.value}>{opt.label}</option>
@@ -531,7 +549,7 @@
 								<label class="block text-xs font-semibold text-neutral-300 mb-1.5">Audio Quality Assessment</label>
 								<select
 									bind:value={mbDefaultQuality}
-									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 								>
 									{#each QUALITY_OPTIONS as opt}
 										<option value={opt.value}>{opt.label}</option>
@@ -544,7 +562,7 @@
 								<label class="block text-xs font-semibold text-neutral-300 mb-1.5">Lyrics Available</label>
 								<select
 									bind:value={mbDefaultLyrics}
-									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 								>
 									{#each LYRICS_OPTIONS as opt}
 										<option value={opt.value}>{opt.label}</option>
@@ -557,7 +575,7 @@
 								<label class="block text-xs font-semibold text-neutral-300 mb-1.5">Censorship Status</label>
 								<select
 									bind:value={mbDefaultCensorship}
-									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+									class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 								>
 									{#each CENSORSHIP_OPTIONS as opt}
 										<option value={opt.value}>{opt.label}</option>
@@ -595,7 +613,7 @@
 							type="button"
 							onclick={importMBRelease}
 							disabled={isImporting}
-							class="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-purple-600/30 transition hover:bg-purple-500 disabled:opacity-50"
+							class="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
 						>
 							<Sparkles class="h-4 w-4" />
 							{isImporting ? 'Importing into Vault...' : 'Import Album into Track Vault'}
@@ -622,7 +640,7 @@
 						type="text"
 						bind:value={manualTitle}
 						placeholder="e.g. Discovery"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -632,7 +650,7 @@
 						type="text"
 						bind:value={manualArtist}
 						placeholder="e.g. Daft Punk"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -642,7 +660,7 @@
 						type="number"
 						bind:value={manualYear}
 						placeholder="e.g. 2001"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -652,7 +670,7 @@
 						type="text"
 						bind:value={manualGenre}
 						placeholder="e.g. Electronic, House"
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 
@@ -660,7 +678,7 @@
 					<label class="block text-xs font-semibold text-neutral-300 mb-1">Media Format</label>
 					<select
 						bind:value={manualMediaType}
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					>
 						<option value="Digital">Digital / Web</option>
 						<option value="CD">CD</option>
@@ -675,7 +693,7 @@
 						type="url"
 						bind:value={manualCoverUrl}
 						placeholder="https://..."
-						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-purple-500"
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					/>
 				</div>
 			</div>
@@ -684,7 +702,7 @@
 			<div class="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-5">
 				<div class="flex items-center justify-between mb-3">
 					<div>
-						<h3 class="text-xs font-bold uppercase tracking-wider text-purple-400">Fast Tracklist Entry</h3>
+						<h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Fast Tracklist Entry</h3>
 						<p class="text-xs text-neutral-400">Paste your tracklist lines (auto-detects track numbers & durations)</p>
 					</div>
 
@@ -703,14 +721,14 @@
 							bind:value={pasteText}
 							rows="6"
 							placeholder={`Paste tracklist, e.g.:\n1. One More Time (5:20)\n2. Aerodynamic (3:27)\n3. Digital Love (4:58)`}
-							class="w-full rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-xs font-mono text-neutral-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-xs font-mono text-neutral-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 						></textarea>
 
 						<div class="flex items-center justify-end gap-2">
 							<button
 								type="button"
 								onclick={parsePastedTracks}
-								class="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-500"
+								class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30 transition"
 							>
 								Process & Fill Tracklist
 							</button>
@@ -811,7 +829,7 @@
 					type="button"
 					onclick={submitManualAlbum}
 					disabled={!manualTitle.trim() || !manualArtist.trim()}
-					class="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-purple-600/30 transition hover:bg-purple-500 disabled:opacity-50"
+					class="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
 				>
 					<Disc class="h-4 w-4" />
 					Save Album to Vault

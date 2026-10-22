@@ -24,7 +24,10 @@
 		Folder,
 		ShieldAlert,
 		FileText,
-		ArrowRight
+		ArrowRight,
+		Search,
+		Filter,
+		RotateCcw
 	} from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
@@ -41,6 +44,16 @@
 	let importingAlbumKey = $state<string | null>(null);
 	let importedAlbumIds = $state<{ [key: string]: number }>({});
 
+	// Autocomplete state
+	let pathSuggestions = $state<string[]>([]);
+	let showSuggestions = $state(false);
+	let quickPaths = $state<string[]>(['/music', './music']);
+	let autocompleteTimeout: any = null;
+
+	// Local search and filter state for discovered tracks
+	let scanSearch = $state('');
+	let scanFilter = $state<string>('all');
+
 	// Keep updated if server data changes
 	$effect(() => {
 		scannedAlbums = JSON.parse(JSON.stringify(data.albums));
@@ -48,6 +61,43 @@
 		dirExists = data.exists;
 		libraryPathInput = data.libraryPath;
 	});
+
+	// Autocomplete fetcher
+	async function fetchSuggestions(pathQuery: string) {
+		try {
+			const res = await fetch(`/api/library/browse?path=${encodeURIComponent(pathQuery.trim())}`);
+			if (res.ok) {
+				const result = await res.json();
+				pathSuggestions = result.suggestions || [];
+				if (result.quickPaths && result.quickPaths.length > 0) {
+					quickPaths = result.quickPaths;
+				}
+			}
+		} catch (err) {
+			console.error('Failed to fetch path suggestions:', err);
+		}
+	}
+
+	function handlePathInput() {
+		showSuggestions = true;
+		clearTimeout(autocompleteTimeout);
+		autocompleteTimeout = setTimeout(() => {
+			fetchSuggestions(libraryPathInput);
+		}, 150);
+	}
+
+	function handlePathFocus() {
+		showSuggestions = true;
+		fetchSuggestions(libraryPathInput);
+	}
+
+	function selectPath(pathVal: string, autoScan = false) {
+		libraryPathInput = pathVal;
+		showSuggestions = false;
+		if (autoScan) {
+			rescan();
+		}
+	}
 
 	function toggleExpand(key: string) {
 		expandedAlbums[key] = !expandedAlbums[key];
@@ -73,6 +123,7 @@
 	}
 
 	async function rescan() {
+		showSuggestions = false;
 		isScanning = true;
 		try {
 			const res = await fetch(`/api/library/scan?path=${encodeURIComponent(libraryPathInput.trim())}`);
@@ -122,13 +173,83 @@
 			importingAlbumKey = null;
 		}
 	}
+
+	// Filtered view of scanned albums & tracks
+	const displayedAlbums = $derived.by(() => {
+		const query = scanSearch.trim().toLowerCase();
+
+		return scannedAlbums
+			.map((album) => {
+				const albumMatchesQuery =
+					!query ||
+					album.title.toLowerCase().includes(query) ||
+					album.artist.toLowerCase().includes(query) ||
+					album.folder_path.toLowerCase().includes(query);
+
+				const matchingTracks = album.tracks.filter((t) => {
+					// Search query match
+					if (query && !albumMatchesQuery) {
+						const trTitleMatch = t.title.toLowerCase().includes(query);
+						const trArtistMatch = (t.artist || '').toLowerCase().includes(query);
+						if (!trTitleMatch && !trArtistMatch) return false;
+					}
+
+					// Category filter
+					if (scanFilter === 'censored') {
+						if (t.censorship !== 'censored') return false;
+					} else if (scanFilter === 'missing_lyrics') {
+						if (t.lyrics !== 'missing') return false;
+					} else if (scanFilter === 'unsynced_lrc') {
+						if (t.lyrics !== 'unsynced_lrc') return false;
+					} else if (scanFilter === 'bad_quality') {
+						if (t.quality_rating !== 'bad' && t.quality_rating !== 'needs_upgrade') return false;
+					} else if (scanFilter === 'not_in_vault') {
+						if (album.already_in_vault) return false;
+					}
+
+					return true;
+				});
+
+				// Include album if it has matching tracks, or if no category filter and album title matched
+				const includeAlbum = matchingTracks.length > 0 || (albumMatchesQuery && scanFilter === 'all');
+
+				return {
+					...album,
+					visibleTracks: matchingTracks,
+					hasFilterMatches: matchingTracks.length > 0,
+					includeAlbum
+				};
+			})
+			.filter((a) => a.includeAlbum);
+	});
+
+	// Select / Deselect filtered tracks
+	function selectAllFiltered(select: boolean) {
+		for (const album of displayedAlbums) {
+			if (album.already_in_vault) continue;
+			for (const track of album.visibleTracks) {
+				track.selected = select;
+			}
+			const origAlbum = scannedAlbums.find((a) => a.album_key === album.album_key);
+			if (origAlbum) {
+				origAlbum.selected = origAlbum.tracks.some((t) => t.selected);
+			}
+		}
+	}
 </script>
+
+<svelte:window onclick={(e) => {
+	const target = e.target as HTMLElement;
+	if (!target.closest('#path-input-container')) {
+		showSuggestions = false;
+	}
+}} />
 
 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 	<!-- Page Header -->
 	<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 		<div>
-			<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400">
+			<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-400">
 				<FolderSync class="h-4 w-4" />
 				Music File Scanner
 			</div>
@@ -146,7 +267,7 @@
 				type="button"
 				onclick={rescan}
 				disabled={isScanning}
-				class="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition hover:bg-purple-500 disabled:opacity-50"
+				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
 			>
 				<FolderSync class="h-4 w-4 {isScanning ? 'animate-spin' : ''}" />
 				<span>{isScanning ? 'Scanning Files...' : 'Rescan Library'}</span>
@@ -154,26 +275,76 @@
 		</div>
 	</div>
 
-	<!-- Library Path Configuration Box -->
+	<!-- Library Path Configuration Box with Autocomplete -->
 	<div class="mb-8 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 sm:p-5">
-		<div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-			<div class="flex items-center gap-3 min-w-0 flex-1">
-				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-purple-400">
-					<Folder class="h-5 w-5" />
+		<div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+			<div id="path-input-container" class="relative flex-1 w-full">
+				<div class="flex items-center gap-3">
+					<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-emerald-400">
+						<Folder class="h-5 w-5" />
+					</div>
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center justify-between">
+							<label class="block text-xs font-semibold text-neutral-300">
+								Server Music Directory Path
+							</label>
+							<span class="text-[11px] text-neutral-500">
+								Autocompletes from system/container
+							</span>
+						</div>
+						<div class="relative mt-1">
+							<input
+								type="text"
+								bind:value={libraryPathInput}
+								oninput={handlePathInput}
+								onfocus={handlePathFocus}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										rescan();
+									}
+								}}
+								placeholder="/music or ./music"
+								class="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs font-mono text-neutral-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+							/>
+
+							<!-- Autocomplete Dropdown Menu -->
+							{#if showSuggestions && pathSuggestions.length > 0}
+								<div class="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl divide-y divide-neutral-800">
+									<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-950/60">
+										Matching System Folders:
+									</div>
+									{#each pathSuggestions as suggestion}
+										<button
+											type="button"
+											onclick={() => selectPath(suggestion)}
+											class="w-full text-left px-3 py-2 text-xs font-mono text-neutral-300 hover:bg-emerald-950/60 hover:text-emerald-300 flex items-center justify-between transition"
+										>
+											<span class="truncate">{suggestion}</span>
+											<span class="text-[10px] text-neutral-500 ml-2 shrink-0">Select</span>
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
 				</div>
-				<div class="min-w-0 flex-1">
-					<label class="block text-xs font-semibold text-neutral-300">
-						Server Music Directory Path
-					</label>
-					<input
-						type="text"
-						bind:value={libraryPathInput}
-						placeholder="/music or /home/user/Music"
-						class="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-xs font-mono text-neutral-200 focus:outline-none focus:ring-1 focus:ring-purple-500"
-					/>
+
+				<!-- Quick Path Badges -->
+				<div class="mt-2.5 flex flex-wrap items-center gap-1.5 pl-13">
+					<span class="text-[11px] text-neutral-500">Quick folders:</span>
+					{#each quickPaths as qPath}
+						<button
+							type="button"
+							onclick={() => selectPath(qPath, true)}
+							class="rounded-md bg-neutral-800/90 px-2 py-0.5 text-[11px] font-mono text-neutral-300 hover:bg-emerald-900/60 hover:text-emerald-300 border border-neutral-700/60 transition"
+						>
+							{qPath}
+						</button>
+					{/each}
 				</div>
 			</div>
 
+			<!-- Status indicator on right -->
 			<div class="text-xs text-neutral-400 sm:text-right shrink-0">
 				{#if dirExists}
 					<span class="inline-flex items-center gap-1 text-emerald-400 font-semibold">
@@ -186,25 +357,106 @@
 						<AlertTriangle class="h-3.5 w-3.5" />
 						Directory not found
 					</span>
-					<p class="text-[11px] text-neutral-500 mt-0.5">Mount your music folder in Docker or set MUSIC_DIR</p>
+					<p class="text-[11px] text-neutral-500 mt-0.5">Mount folder in Docker or pick an existing directory</p>
 				{/if}
 			</div>
 		</div>
 	</div>
 
-	<!-- Scanned Albums List -->
+	<!-- Scanned Albums & Tracks List -->
 	{#if scannedAlbums.length > 0}
 		<div class="space-y-4">
-			<div class="flex items-center justify-between">
-				<h2 class="text-sm font-bold uppercase tracking-wider text-neutral-400">
-					Discovered Albums ({scannedAlbums.length})
-				</h2>
-				<span class="text-xs text-neutral-500">
-					Expand an album to select or unselect individual songs before importing
-				</span>
+			<!-- Header & Local Search / Filter Toolbar -->
+			<div class="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 shadow-sm">
+				<div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+					<!-- Local search input -->
+					<div class="relative flex-1 max-w-md">
+						<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+						<input
+							type="text"
+							bind:value={scanSearch}
+							placeholder="Filter discovered songs or albums..."
+							class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-10 pr-4 py-1.5 text-xs text-neutral-200 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+						/>
+					</div>
+
+					<!-- Filter Pills -->
+					<div class="flex flex-wrap items-center gap-1.5">
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'all')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'all' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							All
+						</button>
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'censored')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'censored' ? 'bg-rose-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							Censored
+						</button>
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'missing_lyrics')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'missing_lyrics' ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							Missing Lyrics
+						</button>
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'unsynced_lrc')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'unsynced_lrc' ? 'bg-amber-700 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							Unsynced LRC
+						</button>
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'bad_quality')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'bad_quality' ? 'bg-rose-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							Bad Quality
+						</button>
+						<button
+							type="button"
+							onclick={() => (scanFilter = 'not_in_vault')}
+							class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {scanFilter === 'not_in_vault' ? 'bg-teal-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}"
+						>
+							Not In Vault
+						</button>
+					</div>
+
+					<!-- Selection shortcuts -->
+					<div class="flex items-center gap-2 border-t md:border-t-0 md:border-l border-neutral-800 pt-2 md:pt-0 md:pl-3 text-xs">
+						<button
+							type="button"
+							onclick={() => selectAllFiltered(true)}
+							class="text-emerald-400 hover:underline font-semibold"
+						>
+							Select Filtered
+						</button>
+						<span class="text-neutral-600">•</span>
+						<button
+							type="button"
+							onclick={() => selectAllFiltered(false)}
+							class="text-neutral-400 hover:underline font-semibold"
+						>
+							Deselect Filtered
+						</button>
+					</div>
+				</div>
+
+				<div class="mt-2.5 flex items-center justify-between text-[11px] text-neutral-400">
+					<span>
+						Showing <strong class="text-white font-bold">{displayedAlbums.length}</strong> of {scannedAlbums.length} albums
+					</span>
+					<span class="text-neutral-500">
+						Expand any album to customize individual song selection, quality, format, or lyrics
+					</span>
+				</div>
 			</div>
 
-			{#each scannedAlbums as album (album.album_key)}
+			{#each displayedAlbums as album (album.album_key)}
 				{@const isExpanded = !!expandedAlbums[album.album_key]}
 				{@const selectedCount = album.tracks.filter((t) => t.selected).length}
 				{@const isImporting = importingAlbumKey === album.album_key}
@@ -219,7 +471,7 @@
 								checked={album.selected}
 								onchange={() => toggleAlbumSelected(album)}
 								disabled={album.already_in_vault}
-								class="h-4 w-4 rounded border-neutral-700 bg-neutral-950 text-purple-600 focus:ring-purple-500"
+								class="h-4 w-4 rounded border-neutral-700 bg-neutral-950 text-emerald-600 focus:ring-emerald-500"
 								title="Select all tracks in this album"
 							/>
 
@@ -260,7 +512,7 @@
 											href="https://musicbrainz.org/release/{album.musicbrainz_id}"
 											target="_blank"
 											rel="noreferrer"
-											class="inline-flex items-center gap-1 rounded bg-purple-950/60 px-2 py-0.5 text-[10px] font-semibold text-purple-300 border border-purple-700/50 hover:text-white"
+											class="inline-flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/50 hover:text-white"
 											title="MusicBrainz Album ID detected in song tags"
 										>
 											<Sparkles class="h-3 w-3" />
@@ -277,7 +529,7 @@
 								<div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
 									<span>{album.year || 'Unknown Year'}</span>
 									<span>•</span>
-									<span class="font-medium text-purple-400">{selectedCount} of {album.track_count} songs selected</span>
+									<span class="font-medium text-emerald-400">{selectedCount} of {album.track_count} songs selected</span>
 									<span>•</span>
 									<span class="truncate font-mono text-[10px] text-neutral-500" title={album.folder_path}>
 										{album.folder_path}
@@ -305,7 +557,7 @@
 								{#if importedAlbumIds[album.album_key]}
 									<a
 										href="/album/{importedAlbumIds[album.album_key]}"
-										class="flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow"
+										class="flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow shadow-emerald-600/30"
 									>
 										<span>View Album</span>
 										<ArrowRight class="h-3.5 w-3.5" />
@@ -320,7 +572,7 @@
 									type="button"
 									onclick={() => importSingleAlbum(album)}
 									disabled={isImporting || selectedCount === 0}
-									class="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-600/30 transition disabled:opacity-50"
+									class="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/30 transition disabled:opacity-50"
 								>
 									<Check class="h-3.5 w-3.5" />
 									<span>{isImporting ? 'Importing...' : 'Add Selected'}</span>
@@ -338,7 +590,7 @@
 									<button
 										type="button"
 										onclick={() => selectAllTracks(album, true)}
-										class="text-purple-400 hover:underline font-medium"
+										class="text-emerald-400 hover:underline font-medium"
 									>
 										Select All
 									</button>
@@ -358,7 +610,7 @@
 							</div>
 
 							<div class="divide-y divide-neutral-800/50 rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950">
-								{#each album.tracks as track}
+								{#each album.visibleTracks as track}
 									<div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-2.5 text-xs transition hover:bg-neutral-900/60 {track.selected ? '' : 'opacity-50 bg-neutral-900/10'}">
 										<!-- Track Selection Checkbox & Info -->
 										<div class="flex items-center gap-3 min-w-0 flex-1">
@@ -366,7 +618,7 @@
 												type="checkbox"
 												checked={track.selected}
 												onchange={() => toggleTrackSelected(album, track)}
-												class="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-purple-500"
+												class="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-emerald-600 focus:ring-emerald-500"
 											/>
 
 											<span class="w-6 text-right font-mono text-neutral-500 text-[11px]">
@@ -444,7 +696,7 @@
 											<select
 												bind:value={track.lyrics}
 												class="rounded-lg border px-2 py-0.5 text-[11px] font-medium {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color}"
-												title="Lyrics status (.lrc file detected or missing)"
+												title="Lyrics status (.lrc file detected, unsynced, or missing)"
 											>
 												{#each LYRICS_OPTIONS as l}
 													<option value={l.value} class="bg-neutral-900 text-neutral-200">
@@ -464,21 +716,21 @@
 	{:else}
 		<!-- Empty State / Setup Instructions -->
 		<div class="rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/30 p-12 text-center">
-			<FolderSync class="mx-auto h-12 w-12 text-purple-400 mb-3 opacity-60" />
+			<FolderSync class="mx-auto h-12 w-12 text-emerald-400 mb-3 opacity-60" />
 			<h3 class="text-lg font-bold text-white">No Audio Files Found in Library Path</h3>
 			<p class="mt-1 text-xs text-neutral-400 max-w-md mx-auto">
-				We couldn't find audio files (.flac, .mp3, .m4a, etc.) at <code class="text-purple-300 font-mono">{libraryPathInput}</code>.
+				We couldn't find audio files (.flac, .mp3, .m4a, etc.) at <code class="text-emerald-300 font-mono">{libraryPathInput}</code>.
 			</p>
 
 			<div class="mt-6 max-w-lg mx-auto rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-left text-xs text-neutral-400 space-y-2">
 				<p class="font-bold text-neutral-200">How to mount your music library in Docker:</p>
-				<p>1. Open <code class="text-purple-300 font-mono">docker-compose.yml</code></p>
+				<p>1. Open <code class="text-emerald-300 font-mono">docker-compose.yml</code></p>
 				<p>2. Add your server music folder under volumes:</p>
 				<pre class="bg-neutral-900 p-2.5 rounded-lg text-emerald-400 font-mono text-[11px] overflow-x-auto">
 volumes:
   - ./data:/app/data
   - /media/Music:/music:ro</pre>
-				<p>3. Run <code class="text-purple-300 font-mono">docker-compose up -d</code> and your entire music collection will appear here instantly!</p>
+				<p>3. Run <code class="text-emerald-300 font-mono">docker-compose up -d</code> and your entire music collection will appear here instantly!</p>
 			</div>
 		</div>
 	{/if}

@@ -17,7 +17,7 @@
 
 <a
 	href="/album/{album.id}"
-	class="group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-800/80 bg-neutral-900/40 p-4 transition duration-200 hover:-translate-y-1 hover:border-neutral-700 hover:bg-neutral-900/80 hover:shadow-xl hover:shadow-purple-950/20"
+	class="group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-800/80 bg-neutral-900/40 p-4 transition duration-200 hover:-translate-y-1 hover:border-emerald-700/50 hover:bg-neutral-900/80 hover:shadow-xl hover:shadow-emerald-950/20"
 >
 	<!-- Cover Art / Thumbnail -->
 	<div class="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-950 shadow-inner">
@@ -65,7 +65,7 @@
 	<!-- Info Section -->
 	<div class="mt-3.5 flex flex-1 flex-col justify-between">
 		<div>
-			<h3 class="truncate font-bold text-neutral-100 group-hover:text-purple-300 transition" title={album.title}>
+			<h3 class="truncate font-bold text-neutral-100 group-hover:text-emerald-300 transition" title={album.title}>
 				{album.title}
 			</h3>
 			<p class="truncate text-sm font-medium text-neutral-400" title={album.artist}>

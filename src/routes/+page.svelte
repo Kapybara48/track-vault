@@ -49,7 +49,7 @@
 		<div class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur">
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Vault Health</span>
-				<Sparkles class="h-4 w-4 text-purple-400" />
+				<Sparkles class="h-4 w-4 text-emerald-400" />
 			</div>
 			<div class="mt-3 flex items-baseline gap-2">
 				<span class="text-3xl font-black tracking-tight {data.stats.health_score >= 80 ? 'text-emerald-400' : data.stats.health_score >= 50 ? 'text-amber-400' : 'text-rose-400'}">
@@ -69,13 +69,13 @@
 		<div class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur">
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Audio Formats</span>
-				<Disc3 class="h-4 w-4 text-blue-400" />
+				<Disc3 class="h-4 w-4 text-teal-400" />
 			</div>
 			<div class="mt-3 flex items-baseline gap-2">
 				<span class="text-3xl font-black tracking-tight text-white">
 					{data.stats.flac_count}
 				</span>
-				<span class="text-xs text-blue-400 font-medium">FLAC / Lossless</span>
+				<span class="text-xs text-emerald-400 font-medium">FLAC / Lossless</span>
 			</div>
 			<p class="mt-2 text-xs text-neutral-400">
 				{data.stats.mp3_count} MP3 • {data.stats.other_format_count} other
@@ -97,7 +97,7 @@
 				</span>
 				<span class="text-xs text-neutral-400">radio edits</span>
 			</div>
-			<p class="mt-2 text-xs text-neutral-400 group-hover:text-purple-300 transition flex items-center gap-1">
+			<p class="mt-2 text-xs text-neutral-400 group-hover:text-emerald-300 transition flex items-center gap-1">
 				<span>Need explicit version</span>
 				<ArrowRight class="h-3 w-3" />
 			</p>
@@ -119,7 +119,7 @@
 				<span class="text-xs text-neutral-400">missing lyrics</span>
 			</div>
 			<p class="mt-2 text-xs text-neutral-400">
-				{data.stats.synced_lyrics_count} Synced .LRC • {data.stats.plain_lyrics_count} Plain
+				{data.stats.synced_lyrics_count} Synced .LRC {#if data.stats.unsynced_lyrics_count > 0}• <span class="text-amber-400">{data.stats.unsynced_lyrics_count} Unsynced</span>{/if} • {data.stats.plain_lyrics_count} Plain
 			</p>
 		</a>
 
@@ -130,7 +130,7 @@
 		>
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bad Quality Rips</span>
-				<TriangleAlert class="h-4 w-4 text-red-400 group-hover:scale-110 transition" />
+				<TriangleAlert class="h-4 w-4 text-rose-400 group-hover:scale-110 transition" />
 			</div>
 			<div class="mt-3 flex items-baseline gap-2">
 				<span class="text-3xl font-black tracking-tight {data.stats.bad_quality_count > 0 ? 'text-rose-400' : 'text-emerald-400'}">
@@ -138,7 +138,7 @@
 				</span>
 				<span class="text-xs text-neutral-400">to upgrade</span>
 			</div>
-			<p class="mt-2 text-xs text-neutral-400 group-hover:text-purple-300 transition flex items-center gap-1">
+			<p class="mt-2 text-xs text-neutral-400 group-hover:text-emerald-300 transition flex items-center gap-1">
 				<span>Low bitrate / distorted</span>
 				<ArrowRight class="h-3 w-3" />
 			</p>
@@ -154,7 +154,7 @@
 				type="text"
 				bind:value={searchQuery}
 				placeholder="Search albums, artists..."
-				class="w-full rounded-xl border border-neutral-800 bg-neutral-900/80 pl-10 pr-4 py-2 text-sm text-neutral-100 placeholder-neutral-500 transition focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+				class="w-full rounded-xl border border-neutral-800 bg-neutral-900/80 pl-10 pr-4 py-2 text-sm text-neutral-100 placeholder-neutral-500 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 			/>
 		</form>
 
@@ -163,7 +163,7 @@
 			<button
 				type="button"
 				onclick={() => setFilter('all')}
-				class="rounded-lg px-3 py-1.5 text-xs font-semibold transition {data.activeFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+				class="rounded-lg px-3 py-1.5 text-xs font-semibold transition {data.activeFilter === 'all' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			>
 				All Albums ({data.stats.total_albums})
 			</button>
@@ -203,6 +203,14 @@
 
 			<button
 				type="button"
+				onclick={() => setFilter('unsynced_lyrics')}
+				class="rounded-lg px-3 py-1.5 text-xs font-medium transition {data.activeFilter === 'unsynced_lyrics' ? 'bg-amber-700 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			>
+				Unsynced LRC
+			</button>
+
+			<button
+				type="button"
 				onclick={() => setFilter('all_good')}
 				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition {data.activeFilter === 'all_good' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			>
@@ -222,7 +230,7 @@
 	{:else}
 		<!-- Empty State -->
 		<section class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/20 py-20 text-center">
-			<div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-800/80 text-purple-400 mb-4">
+			<div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-800/80 text-emerald-400 mb-4">
 				<Disc3 class="h-8 w-8" />
 			</div>
 			<h3 class="text-lg font-bold text-neutral-100">
@@ -236,7 +244,7 @@
 				{#if data.searchQuery || data.activeFilter !== 'all'}
 					Try adjusting your search query or reset filters to see all albums.
 				{:else}
-					Start tracking your collection by searching MusicBrainz or adding an album manually.
+					Start tracking your collection by searching MusicBrainz or scanning your server library.
 				{/if}
 			</p>
 			<div class="mt-6 flex items-center gap-3">
@@ -250,11 +258,11 @@
 					</button>
 				{:else}
 					<a
-						href="/add"
-						class="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-600/30 transition hover:bg-purple-500"
+						href="/scan"
+						class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500"
 					>
 						<Plus class="h-4 w-4" />
-						Add First Album
+						Scan Music Files
 					</a>
 				{/if}
 			</div>

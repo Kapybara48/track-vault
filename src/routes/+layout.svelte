@@ -11,7 +11,7 @@
 	<meta name="description" content="Self-hosted music quality, censorship, and lyrics tracker" />
 </svelte:head>
 
-<div class="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
+<div class="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
 	<Navbar issuesCount={data.stats.total_needs_attention} />
 
 	<main class="flex-1 pb-16">

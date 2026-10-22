@@ -72,7 +72,7 @@
 
 	// Quick 1-click toggles
 	async function cycleLyrics() {
-		const order: LyricsStatus[] = ['missing', 'plain_txt', 'synced_lrc', 'instrumental'];
+		const order: LyricsStatus[] = ['missing', 'plain_txt', 'unsynced_lrc', 'synced_lrc', 'instrumental'];
 		const nextIdx = (order.indexOf(track.lyrics) + 1) % order.length;
 		await updateField('lyrics', order[nextIdx]);
 	}

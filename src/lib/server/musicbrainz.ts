@@ -27,16 +27,68 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 }
 
 /**
- * Search MusicBrainz for releases matching a query
+/**
+ * Helper to escape characters for MusicBrainz Lucene query syntax
  */
-export async function searchMusicBrainz(query: string): Promise<MusicBrainzReleaseItem[]> {
-	if (!query || !query.trim()) return [];
+function escapeLucene(str: string): string {
+	// Escape Lucene special characters: + - && || ! ( ) { } [ ] ^ " ~ * ? : \ /
+	return str.replace(/([+\-!(){}[\]^"~*?:\\])/g, '\\$1');
+}
 
-	// Clean up query
-	const cleanQuery = query.trim();
-	// If query has no special syntax, search by release title or artist
-	const encoded = encodeURIComponent(cleanQuery);
-	const url = `https://musicbrainz.org/ws/2/release/?query=${encoded}&fmt=json&limit=15`;
+/**
+ * Search MusicBrainz for releases matching a query and optional artist
+ */
+export async function searchMusicBrainz(query: string, artist?: string): Promise<MusicBrainzReleaseItem[]> {
+	if ((!query || !query.trim()) && (!artist || !artist.trim())) return [];
+
+	let luceneQuery = '';
+	const cleanQuery = query?.trim() || '';
+	const cleanArtist = artist?.trim() || '';
+
+	if (cleanQuery && cleanArtist) {
+		// Both album title and artist specified
+		luceneQuery = `release:"${escapeLucene(cleanQuery)}" AND (artist:"${escapeLucene(cleanArtist)}" OR artistname:"${escapeLucene(cleanArtist)}")`;
+	} else if (cleanArtist && !cleanQuery) {
+		// Only artist specified
+		luceneQuery = `artist:"${escapeLucene(cleanArtist)}" OR artistname:"${escapeLucene(cleanArtist)}"`;
+	} else {
+		// Single query string specified
+		// Check if user already typed Lucene field syntax (e.g. release: or artist:)
+		if (cleanQuery.includes(':') || cleanQuery.includes(' AND ') || cleanQuery.includes(' OR ')) {
+			luceneQuery = cleanQuery;
+		} else if (cleanQuery.includes(' - ')) {
+			// e.g. "Kamikaze - Eminem" or "Eminem - Kamikaze"
+			const parts = cleanQuery.split(' - ').map((s) => s.trim()).filter(Boolean);
+			if (parts.length >= 2) {
+				luceneQuery = `(release:"${escapeLucene(parts[0])}" AND artist:"${escapeLucene(parts[1])}") OR (release:"${escapeLucene(parts[1])}" AND artist:"${escapeLucene(parts[0])}")`;
+			} else {
+				luceneQuery = cleanQuery;
+			}
+		} else if (/\s+by\s+/i.test(cleanQuery)) {
+			// e.g. "Kamikaze by Eminem"
+			const parts = cleanQuery.split(/\s+by\s+/i).map((s) => s.trim()).filter(Boolean);
+			if (parts.length >= 2) {
+				luceneQuery = `release:"${escapeLucene(parts[0])}" AND (artist:"${escapeLucene(parts[1])}" OR artistname:"${escapeLucene(parts[1])}")`;
+			} else {
+				luceneQuery = cleanQuery;
+			}
+		} else {
+			// Free text: e.g. "Kamikaze Eminem"
+			const words = cleanQuery.split(/\s+/).filter(Boolean);
+			if (words.length >= 2) {
+				const firstPart = words.slice(0, -1).join(' ');
+				const lastWord = words[words.length - 1];
+				const firstWord = words[0];
+				const restWords = words.slice(1).join(' ');
+				luceneQuery = `release:"${escapeLucene(cleanQuery)}" OR (release:"${escapeLucene(firstPart)}" AND artist:"${escapeLucene(lastWord)}") OR (release:"${escapeLucene(restWords)}" AND artist:"${escapeLucene(firstWord)}") OR (${cleanQuery})`;
+			} else {
+				luceneQuery = `release:"${escapeLucene(cleanQuery)}" OR artist:"${escapeLucene(cleanQuery)}" OR (${cleanQuery})`;
+			}
+		}
+	}
+
+	const encoded = encodeURIComponent(luceneQuery);
+	const url = `https://musicbrainz.org/ws/2/release/?query=${encoded}&fmt=json&limit=30`;
 
 	try {
 		const res = await rateLimitedFetch(url);
