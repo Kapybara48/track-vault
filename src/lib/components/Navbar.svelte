@@ -11,6 +11,18 @@
 	let { issuesCount = 0, user = null, authDisabled = false }: Props = $props();
 
 	const currentPath = $derived(page.url.pathname);
+
+	async function handleLogout() {
+		try {
+			await fetch('/api/auth/logout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+		} catch (e) {
+			console.error('Logout error:', e);
+		}
+		window.location.href = '/login';
+	}
 </script>
 
 <header class="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md">
@@ -80,15 +92,14 @@
 						<span class="truncate max-w-[100px]">{user.username}</span>
 					</span>
 
-					<form method="POST" action="/api/auth/logout">
-						<button
-							type="submit"
-							class="rounded-xl p-2 text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 border border-transparent hover:border-neutral-800 transition cursor-pointer"
-							title="Sign Out"
-						>
-							<LogOut class="h-4 w-4" />
-						</button>
-					</form>
+					<button
+						type="button"
+						onclick={handleLogout}
+						class="rounded-xl p-2 text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 border border-transparent hover:border-neutral-800 transition cursor-pointer"
+						title="Sign Out"
+					>
+						<LogOut class="h-4 w-4" />
+					</button>
 				</div>
 			{/if}
 		</div>

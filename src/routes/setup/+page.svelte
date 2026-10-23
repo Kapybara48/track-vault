@@ -1,19 +1,62 @@
 <script lang="ts">
 	import { Disc, ShieldCheck, ArrowRight, Lock, User, Sparkles, Database } from '@lucide/svelte';
-	import type { ActionData } from './$types.js';
-
-	let { form }: { form: ActionData } = $props();
 
 	let username = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
 	let isSubmitting = $state(false);
+	let errorMessage = $state<string | null>(null);
 
-	$effect(() => {
-		if (form?.username) {
-			username = form.username;
+	async function handleSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		errorMessage = null;
+
+		if (!username || username.trim().length < 3) {
+			errorMessage = 'Username must be at least 3 characters long';
+			return;
 		}
-	});
+
+		if (!password || password.length < 6) {
+			errorMessage = 'Password must be at least 6 characters long';
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			errorMessage = 'Passwords do not match';
+			return;
+		}
+
+		isSubmitting = true;
+
+		try {
+			const res = await fetch('/api/auth/setup', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					username: username.trim(),
+					password,
+					confirmPassword
+				})
+			});
+
+			const data = await res.json();
+
+			if (!res.ok) {
+				errorMessage = data.error || 'Failed to complete setup';
+				isSubmitting = false;
+				return;
+			}
+
+			// Success! Redirect to main vault
+			window.location.href = data.redirect || '/';
+		} catch (err: any) {
+			console.error('Setup error:', err);
+			errorMessage = 'Network or server error occurred during setup. Please try again.';
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -41,15 +84,14 @@
 
 		<!-- Setup Card -->
 		<div class="mt-8 rounded-3xl border border-neutral-800 bg-neutral-900/50 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-			{#if form?.error}
+			{#if errorMessage}
 				<div class="mb-5 rounded-xl border border-rose-800/80 bg-rose-950/60 p-3 text-xs text-rose-300">
-					{form.error}
+					{errorMessage}
 				</div>
 			{/if}
 
 			<form
-				method="POST"
-				onsubmit={() => (isSubmitting = true)}
+				onsubmit={handleSubmit}
 				class="space-y-4"
 			>
 				<div>
@@ -133,7 +175,7 @@
 
 			<div class="mt-6 border-t border-neutral-800/80 pt-4 flex items-center gap-2 text-[11px] text-neutral-400">
 				<Database class="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-				<span>Powered by PostgreSQL. Shared across your music suite in Docker.</span>
+				<span>Powered by SQLite. Fast, self-contained local database in Docker.</span>
 			</div>
 		</div>
 	</div>

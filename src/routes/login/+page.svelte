@@ -1,18 +1,54 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { Disc, Lock, User, ArrowRight, ShieldCheck } from '@lucide/svelte';
-	import type { ActionData } from './$types.js';
-
-	let { form }: { form: ActionData } = $props();
 
 	let username = $state('');
 	let password = $state('');
 	let isSubmitting = $state(false);
+	let errorMessage = $state<string | null>(null);
 
-	$effect(() => {
-		if (form?.username) {
-			username = form.username;
+	const redirectUrl = $derived(page.url.searchParams.get('redirect') || '/');
+
+	async function handleSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		errorMessage = null;
+
+		if (!username.trim() || !password) {
+			errorMessage = 'Username and password are required';
+			return;
 		}
-	});
+
+		isSubmitting = true;
+
+		try {
+			const res = await fetch('/api/auth/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					username: username.trim(),
+					password,
+					redirectTo: redirectUrl
+				})
+			});
+
+			const data = await res.json();
+
+			if (!res.ok) {
+				errorMessage = data.error || 'Failed to sign in';
+				isSubmitting = false;
+				return;
+			}
+
+			// Success! Redirect to intended page or home
+			window.location.href = data.redirect || redirectUrl;
+		} catch (err: any) {
+			console.error('Login error:', err);
+			errorMessage = 'Network or server error occurred during sign in. Please try again.';
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -36,15 +72,14 @@
 
 		<!-- Login Card -->
 		<div class="mt-8 rounded-3xl border border-neutral-800 bg-neutral-900/50 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-			{#if form?.error}
+			{#if errorMessage}
 				<div class="mb-5 rounded-xl border border-rose-800/80 bg-rose-950/60 p-3 text-xs text-rose-300">
-					{form.error}
+					{errorMessage}
 				</div>
 			{/if}
 
 			<form
-				method="POST"
-				onsubmit={() => (isSubmitting = true)}
+				onsubmit={handleSubmit}
 				class="space-y-4"
 			>
 				<div>

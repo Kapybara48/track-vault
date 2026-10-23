@@ -57,7 +57,8 @@ export async function handle({
 	// If user is NOT logged in
 	const isAuthRoute =
 		path === '/login' ||
-		path.startsWith('/api/auth/login');
+		path.startsWith('/api/auth/login') ||
+		path.startsWith('/api/auth/logout');
 
 	if (!isAuthRoute) {
 		if (path.startsWith('/api/')) {
