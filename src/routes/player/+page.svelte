@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types.js';
 	import type { Track } from '$lib/types/index.js';
-	import type { PlayerAlbum } from './+page.server.js';
+	import type { PlayerAlbum } from '$lib/services/player.svelte.js';
+	import { player } from '$lib/services/player.svelte.js';
 	import {
 		Play,
 		Pause,
@@ -21,38 +22,19 @@
 		Clock,
 		ExternalLink,
 		X,
-		Sparkles,
-		Check,
 		Music,
-		Heart,
-		CircleCheck,
-		TriangleAlert,
-		Library,
-		SlidersHorizontal,
-		Edit3,
-		FolderCheck,
-		Radio
+		CircleCheck
 	} from '@lucide/svelte';
 
 	let { data }: { data: PageData } = $props();
 
-	// Audio Engine State
-	let audioEl: HTMLAudioElement | null = $state(null);
-	let isPlaying = $state(false);
-	let currentTime = $state(0);
-	let duration = $state(0);
-	let volume = $state(0.85);
-	let isMuted = $state(false);
-	let shuffleEnabled = $state(false);
-	let repeatMode = $state<'off' | 'all' | 'one'>('all');
-
-	// Active Selection & Queue State
-	let selectedAlbum = $state<PlayerAlbum>(data.albums[0] || null);
-	let currentTrack = $state<Track | null>(null);
-	let currentAlbum = $state<PlayerAlbum | null>(null);
-	let activeQueue = $state<Track[]>([]);
-	let queueIndex = $state<number>(-1);
-	let historyTrackIds = $state<number[]>([]);
+	// Active Selection & Filter State
+	let selectedAlbum = $state<PlayerAlbum>(
+		player.currentAlbum ||
+		(data.initialAlbumId ? data.albums.find((a) => a.id === data.initialAlbumId) : null) ||
+		data.albums[0] ||
+		null
+	);
 
 	// Filters & Search
 	let librarySearch = $state('');
@@ -130,7 +112,7 @@
 		let idx = -1;
 		for (let i = 0; i < lyricsLines.length; i++) {
 			const l = lyricsLines[i];
-			if (l.time !== null && l.time <= currentTime) {
+			if (l.time !== null && l.time <= player.currentTime) {
 				idx = i;
 			}
 		}
@@ -149,7 +131,8 @@
 
 	// Fetch Lyrics for current track
 	async function loadLyricsForCurrentTrack() {
-		if (!currentTrack) {
+		const track = player.currentTrack;
+		if (!track) {
 			lyricsLines = [];
 			isInstrumentalLyrics = false;
 			return;
@@ -157,7 +140,7 @@
 
 		lyricsLoading = true;
 		try {
-			const res = await fetch(`/api/tracks/${currentTrack.id}/lyrics`);
+			const res = await fetch(`/api/tracks/${track.id}/lyrics`);
 			const json = await res.json();
 			if (json.success && json.lyrics_text) {
 				const raw = json.lyrics_text.trim();
@@ -186,156 +169,13 @@
 		}
 	}
 
-	// Playback Action: Play a specific track
-	function playTrack(track: Track, album?: PlayerAlbum, queue?: Track[]) {
-		currentTrack = track;
-		currentAlbum = album || data.albums.find((a) => a.id === track.album_id) || selectedAlbum;
-		activeQueue = queue || (currentAlbum ? currentAlbum.tracks : [track]);
-		queueIndex = activeQueue.findIndex((t) => t.id === track.id);
-		if (queueIndex === -1 && activeQueue.length > 0) {
-			queueIndex = 0;
-		}
-
-		if (historyTrackIds.length > 50) historyTrackIds.shift();
-		historyTrackIds.push(track.id);
-
-		if (!audioEl) return;
-		audioEl.src = `/api/tracks/${track.id}/audio`;
-		audioEl.play().catch((err) => {
-			console.warn('Playback error:', err);
-		});
-		isPlaying = true;
-
-		// Update document title
-		const artist = track.artist || (currentAlbum ? currentAlbum.artist : 'Track Vault');
-		document.title = `${track.title} • ${artist} | Vault Player`;
-
-		// Set MediaSession metadata
-		if ('mediaSession' in navigator) {
-			navigator.mediaSession.metadata = new MediaMetadata({
-				title: track.title,
-				artist: artist,
-				album: currentAlbum ? currentAlbum.title : 'Track Vault',
-				artwork: currentAlbum?.cover_url
-					? [
-							{ src: currentAlbum.cover_url, sizes: '300x300', type: 'image/jpeg' },
-							{ src: currentAlbum.cover_url, sizes: '512x512', type: 'image/jpeg' }
-					  ]
-					: []
-			});
-		}
-
-		if (showLyricsDrawer) {
+	// Auto-load lyrics when track changes and drawer is open
+	$effect(() => {
+		const tr = player.currentTrack;
+		if (showLyricsDrawer && tr) {
 			loadLyricsForCurrentTrack();
 		}
-	}
-
-	// Playback Action: Play entire album
-	function playAlbum(album: PlayerAlbum) {
-		selectedAlbum = album;
-		if (album.tracks.length > 0) {
-			playTrack(album.tracks[0], album, album.tracks);
-		}
-	}
-
-	// Play / Pause Toggle
-	function togglePlay() {
-		if (!audioEl) return;
-		if (!currentTrack) {
-			if (selectedAlbum && selectedAlbum.tracks.length > 0) {
-				playAlbum(selectedAlbum);
-			}
-			return;
-		}
-
-		if (isPlaying) {
-			audioEl.pause();
-		} else {
-			audioEl.play().catch((e) => console.warn('Play error:', e));
-		}
-	}
-
-	// Next Track
-	function nextTrack() {
-		if (!activeQueue.length) return;
-
-		if (repeatMode === 'one') {
-			if (audioEl) {
-				audioEl.currentTime = 0;
-				audioEl.play().catch(() => {});
-			}
-			return;
-		}
-
-		if (shuffleEnabled && activeQueue.length > 1) {
-			let nextIdx = Math.floor(Math.random() * activeQueue.length);
-			if (nextIdx === queueIndex) {
-				nextIdx = (nextIdx + 1) % activeQueue.length;
-			}
-			playTrack(activeQueue[nextIdx], currentAlbum || undefined, activeQueue);
-			return;
-		}
-
-		if (queueIndex < activeQueue.length - 1) {
-			playTrack(activeQueue[queueIndex + 1], currentAlbum || undefined, activeQueue);
-		} else if (repeatMode === 'all') {
-			playTrack(activeQueue[0], currentAlbum || undefined, activeQueue);
-		} else {
-			isPlaying = false;
-		}
-	}
-
-	// Previous Track
-	function previousTrack() {
-		if (!audioEl || !activeQueue.length) return;
-
-		if (audioEl.currentTime > 3) {
-			audioEl.currentTime = 0;
-			return;
-		}
-
-		if (queueIndex > 0) {
-			playTrack(activeQueue[queueIndex - 1], currentAlbum || undefined, activeQueue);
-		} else if (repeatMode === 'all') {
-			playTrack(activeQueue[activeQueue.length - 1], currentAlbum || undefined, activeQueue);
-		} else {
-			audioEl.currentTime = 0;
-		}
-	}
-
-	function seekTo(seconds: number) {
-		if (!audioEl) return;
-		audioEl.currentTime = Math.max(0, Math.min(duration, seconds));
-	}
-
-	function handleVolumeChange(newVol: number) {
-		volume = Math.max(0, Math.min(1, newVol));
-		isMuted = volume === 0;
-		if (audioEl) {
-			audioEl.volume = volume;
-			audioEl.muted = isMuted;
-		}
-		try {
-			localStorage.setItem('trackvault_player_volume', volume.toString());
-		} catch {}
-	}
-
-	function toggleMute() {
-		isMuted = !isMuted;
-		if (audioEl) {
-			audioEl.muted = isMuted;
-		}
-	}
-
-	function toggleShuffle() {
-		shuffleEnabled = !shuffleEnabled;
-	}
-
-	function toggleRepeat() {
-		if (repeatMode === 'off') repeatMode = 'all';
-		else if (repeatMode === 'all') repeatMode = 'one';
-		else repeatMode = 'off';
-	}
+	});
 
 	function toggleLyrics() {
 		showLyricsDrawer = !showLyricsDrawer;
@@ -394,44 +234,35 @@
 
 		if (e.code === 'Space') {
 			e.preventDefault();
-			togglePlay();
+			player.togglePlay();
 		} else if (e.code === 'ArrowLeft') {
 			e.preventDefault();
 			if (e.shiftKey) {
-				previousTrack();
-			} else if (audioEl) {
-				seekTo(audioEl.currentTime - 5);
+				player.previousTrack();
+			} else {
+				player.seekTo(player.currentTime - 5);
 			}
 		} else if (e.code === 'ArrowRight') {
 			e.preventDefault();
 			if (e.shiftKey) {
-				nextTrack();
-			} else if (audioEl) {
-				seekTo(audioEl.currentTime + 5);
+				player.nextTrack();
+			} else {
+				player.seekTo(player.currentTime + 5);
 			}
 		} else if (e.code === 'ArrowUp') {
 			e.preventDefault();
-			handleVolumeChange(volume + 0.05);
+			player.setVolume(player.volume + 0.05);
 		} else if (e.code === 'ArrowDown') {
 			e.preventDefault();
-			handleVolumeChange(volume - 0.05);
+			player.setVolume(player.volume - 0.05);
 		} else if (e.key.toLowerCase() === 'm') {
-			toggleMute();
+			player.toggleMute();
 		} else if (e.key.toLowerCase() === 'l') {
 			toggleLyrics();
 		}
 	}
 
 	onMount(() => {
-		// Restore volume
-		try {
-			const saved = localStorage.getItem('trackvault_player_volume');
-			if (saved) {
-				volume = parseFloat(saved);
-				if (audioEl) audioEl.volume = volume;
-			}
-		} catch {}
-
 		// Handle initial target from URL parameters
 		if (data.initialAlbumId) {
 			const found = data.albums.find((a) => a.id === data.initialAlbumId);
@@ -440,39 +271,18 @@
 			}
 		}
 
-		if (data.initialTrackId) {
+		if (data.initialTrackId && !player.currentTrack) {
 			const tr = data.allTracks.find((t) => t.id === data.initialTrackId);
 			if (tr) {
 				const alb = data.albums.find((a) => a.id === tr.album_id);
-				playTrack(tr, alb);
+				if (alb) selectedAlbum = alb;
+				player.playTrack(tr, alb || selectedAlbum, selectedAlbum?.tracks);
 			}
-		}
-
-		// Setup MediaSession action handlers
-		if ('mediaSession' in navigator) {
-			navigator.mediaSession.setActionHandler('play', () => togglePlay());
-			navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-			navigator.mediaSession.setActionHandler('previoustrack', () => previousTrack());
-			navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
-			navigator.mediaSession.setActionHandler('seekto', (details) => {
-				if (details.seekTime !== undefined) seekTo(details.seekTime);
-			});
 		}
 	});
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
-
-<!-- Audio Element -->
-<audio
-	bind:this={audioEl}
-	bind:currentTime
-	bind:duration
-	onplay={() => (isPlaying = true)}
-	onpause={() => (isPlaying = false)}
-	onended={nextTrack}
-	preload="auto"
-></audio>
 
 <!-- Track Vault Studio Audio Player (Full Viewport, Non-Scrollable Window) -->
 <div class="flex-1 h-full flex flex-col bg-neutral-950 text-neutral-100 font-sans select-none overflow-hidden min-h-0">
@@ -536,7 +346,7 @@
 			<div class="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
 				{#each filteredAlbums as album}
 					{@const isSelected = selectedAlbum?.id === album.id}
-					{@const isPlayingThisAlbum = currentAlbum?.id === album.id && isPlaying}
+					{@const isPlayingThisAlbum = player.currentAlbum?.id === album.id && player.isPlaying}
 					<div
 						role="button"
 						tabindex="0"
@@ -586,7 +396,10 @@
 							type="button"
 							onclick={(e) => {
 								e.stopPropagation();
-								playAlbum(album);
+								selectedAlbum = album;
+								if (album.tracks.length > 0) {
+									player.playTrack(album.tracks[0], album, album.tracks);
+								}
 							}}
 							class="p-2 rounded-full bg-emerald-500 text-neutral-950 opacity-0 group-hover:opacity-100 transition hover:scale-110 shadow-md cursor-pointer shrink-0"
 							title="Play Album"
@@ -674,15 +487,15 @@
 								<button
 									type="button"
 									onclick={() => {
-										if (currentAlbum?.id === selectedAlbum.id && isPlaying) {
-											togglePlay();
-										} else {
-											playAlbum(selectedAlbum);
+										if (player.currentAlbum?.id === selectedAlbum.id && player.isPlaying) {
+											player.togglePlay();
+										} else if (selectedAlbum.tracks.length > 0) {
+											player.playTrack(selectedAlbum.tracks[0], selectedAlbum, selectedAlbum.tracks);
 										}
 									}}
 									class="px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
 								>
-									{#if currentAlbum?.id === selectedAlbum.id && isPlaying}
+									{#if player.currentAlbum?.id === selectedAlbum.id && player.isPlaying}
 										<Pause class="w-4 h-4 fill-current" />
 										<span>Pause</span>
 									{:else}
@@ -695,12 +508,14 @@
 								<button
 									type="button"
 									onclick={() => {
-										shuffleEnabled = !shuffleEnabled;
-										if (!isPlaying || currentAlbum?.id !== selectedAlbum.id) {
-											playAlbum(selectedAlbum);
+										player.toggleShuffle();
+										if (!player.isPlaying || player.currentAlbum?.id !== selectedAlbum.id) {
+											if (selectedAlbum.tracks.length > 0) {
+												player.playTrack(selectedAlbum.tracks[0], selectedAlbum, selectedAlbum.tracks);
+											}
 										}
 									}}
-									class="p-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 {shuffleEnabled ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-neutral-800/80 border-neutral-700/70 text-neutral-300 hover:bg-neutral-700'}"
+									class="p-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 {player.shuffleEnabled ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-neutral-800/80 border-neutral-700/70 text-neutral-300 hover:bg-neutral-700'}"
 									title="Shuffle Play"
 								>
 									<Shuffle class="w-3.5 h-3.5" />
@@ -746,10 +561,10 @@
 						</thead>
 						<tbody class="divide-y divide-neutral-800/30">
 							{#each displayedTracks as track, idx}
-								{@const isCurrent = currentTrack?.id === track.id}
-								{@const isCurrentPlaying = isCurrent && isPlaying}
+								{@const isCurrent = player.currentTrack?.id === track.id}
+								{@const isCurrentPlaying = isCurrent && player.isPlaying}
 								<tr
-									onclick={() => playTrack(track, selectedAlbum, selectedAlbum.tracks)}
+									onclick={() => player.playTrack(track, selectedAlbum, selectedAlbum.tracks)}
 									class="group hover:bg-neutral-800/50 transition cursor-pointer rounded-xl h-12 {isCurrent ? 'bg-emerald-950/20 text-white' : 'text-neutral-300'}"
 								>
 									<!-- Track # or Play Action -->
@@ -796,7 +611,7 @@
 												type="button"
 												onclick={(e) => {
 													e.stopPropagation();
-													playTrack(track, selectedAlbum, selectedAlbum.tracks);
+													player.playTrack(track, selectedAlbum, selectedAlbum.tracks);
 													showLyricsDrawer = true;
 												}}
 												class="px-2 py-0.5 rounded text-[10px] bg-emerald-950/50 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/40 cursor-pointer transition"
@@ -876,18 +691,18 @@
 								</div>
 							</div>
 						{:else if lyricsLines.length > 0}
-							<div bind:this={lyricsContainerEl} class="space-y-4 py-6">
+							<div bind:this={lyricsContainerEl} class="space-y-3.5 py-8 px-1">
 								{#each lyricsLines as line, i}
 									{@const isActive = activeLyricLineIndex === i}
 									<button
 										type="button"
 										id={`lyrics-line-${i}`}
-										onclick={() => line.time !== null && seekTo(line.time)}
-										class="w-full text-left transition-all duration-200 cursor-pointer {isActive
-											? 'text-lg font-extrabold text-emerald-300 drop-shadow-[0_0_12px_rgba(16,185,129,0.35)] scale-[1.02] origin-left'
+										onclick={() => line.time !== null && player.seekTo(line.time)}
+										class="w-full text-left transition-all duration-200 cursor-pointer rounded-lg px-2 py-1 leading-relaxed {isActive
+											? 'text-[17px] font-bold text-emerald-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.35)] bg-emerald-950/20'
 											: i < activeLyricLineIndex
-											? 'text-xs text-neutral-500 hover:text-neutral-300'
-											: 'text-xs text-neutral-400 hover:text-white'}"
+											? 'text-[15px] font-medium text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/20'
+											: 'text-[15px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800/20'}"
 									>
 										{line.text}
 									</button>
@@ -897,9 +712,9 @@
 							<div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-500 space-y-3">
 								<Mic class="w-10 h-10 opacity-30" />
 								<p class="text-xs">No lyrics found for this song.</p>
-								{#if currentTrack}
+								{#if player.currentTrack}
 									<a
-										href="/lrc-maker?trackId={currentTrack.id}"
+										href="/lrc-maker?trackId={player.currentTrack.id}"
 										class="px-3 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 text-xs font-semibold transition"
 									>
 										Create Synced Lyrics &rarr;
@@ -912,28 +727,28 @@
 							<span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-2">
 								Now Playing
 							</span>
-							{#if currentTrack}
+							{#if player.currentTrack}
 								<div class="p-2.5 rounded-xl bg-neutral-800/60 border border-neutral-700/40 flex items-center gap-3">
 									<div class="min-w-0 flex-1">
-										<div class="text-xs font-bold text-emerald-300 truncate">{currentTrack.title}</div>
-										<div class="text-[10px] text-neutral-400 truncate">{currentTrack.artist || currentAlbum?.artist}</div>
+										<div class="text-xs font-bold text-emerald-300 truncate">{player.currentTrack.title}</div>
+										<div class="text-[10px] text-neutral-400 truncate">{player.currentTrack.artist || player.currentAlbum?.artist}</div>
 									</div>
-									<span class="text-xs font-mono text-neutral-400">{formatDurationMs(currentTrack.duration_ms)}</span>
+									<span class="text-xs font-mono text-neutral-400">{formatDurationMs(player.currentTrack.duration_ms)}</span>
 								</div>
 							{/if}
 
 							<span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block pt-3 mb-2">
-								Next Up ({Math.max(0, activeQueue.length - queueIndex - 1)})
+								Next Up ({Math.max(0, player.activeQueue.length - player.queueIndex - 1)})
 							</span>
-							{#each activeQueue.slice(queueIndex + 1) as nextTr}
+							{#each player.activeQueue.slice(player.queueIndex + 1) as nextTr}
 								<button
 									type="button"
-									onclick={() => playTrack(nextTr, currentAlbum || undefined, activeQueue)}
+									onclick={() => player.playTrack(nextTr, player.currentAlbum || undefined, player.activeQueue)}
 									class="w-full text-left p-2 rounded-xl hover:bg-neutral-800/40 flex items-center justify-between gap-3 text-xs text-neutral-300 transition cursor-pointer"
 								>
 									<div class="min-w-0 flex-1">
 										<div class="font-medium text-white truncate">{nextTr.title}</div>
-										<div class="text-[10px] text-neutral-400 truncate">{nextTr.artist || currentAlbum?.artist}</div>
+										<div class="text-[10px] text-neutral-400 truncate">{nextTr.artist || player.currentAlbum?.artist}</div>
 									</div>
 									<span class="text-[10px] font-mono text-neutral-500">{formatDurationMs(nextTr.duration_ms)}</span>
 								</button>
@@ -949,10 +764,10 @@
 	<footer class="shrink-0 mx-3 mb-3 p-3 rounded-2xl bg-neutral-900/85 backdrop-blur-2xl border border-neutral-800/80 shadow-2xl flex items-center justify-between gap-4 z-40">
 		<!-- Left: Now Playing Info -->
 		<div class="flex items-center gap-3 w-1/4 min-w-[180px]">
-			{#if currentTrack}
+			{#if player.currentTrack}
 				<div class="w-12 h-12 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 shadow">
-					{#if currentAlbum?.cover_url}
-						<img src={currentAlbum.cover_url} alt={currentTrack.title} class="w-full h-full object-cover" />
+					{#if player.currentAlbum?.cover_url}
+						<img src={player.currentAlbum.cover_url} alt={player.currentTrack.title} class="w-full h-full object-cover" />
 					{:else}
 						<div class="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-500">
 							<Music class="w-5 h-5" />
@@ -962,14 +777,14 @@
 
 				<div class="min-w-0 flex-1">
 					<div class="text-xs font-bold text-white truncate hover:underline cursor-pointer">
-						{currentTrack.title}
+						{player.currentTrack.title}
 					</div>
 					<div class="text-[11px] text-neutral-400 truncate">
-						{currentTrack.artist || currentAlbum?.artist || 'Track Vault'}
+						{player.currentTrack.artist || player.currentAlbum?.artist || 'Track Vault'}
 					</div>
 					<div class="mt-0.5">
 						<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-950 border border-emerald-500/30 text-emerald-400">
-							{currentTrack.format} Lossless
+							{player.currentTrack.format} Lossless
 						</span>
 					</div>
 				</div>
@@ -990,9 +805,9 @@
 				<!-- Shuffle -->
 				<button
 					type="button"
-					onclick={toggleShuffle}
-					class="p-1.5 rounded-full transition cursor-pointer relative {shuffleEnabled ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}"
-					title="Shuffle: {shuffleEnabled ? 'ON' : 'OFF'}"
+					onclick={() => player.toggleShuffle()}
+					class="p-1.5 rounded-full transition cursor-pointer relative {player.shuffleEnabled ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}"
+					title="Shuffle: {player.shuffleEnabled ? 'ON' : 'OFF'}"
 				>
 					<Shuffle class="w-4 h-4" />
 				</button>
@@ -1000,7 +815,7 @@
 				<!-- Previous -->
 				<button
 					type="button"
-					onclick={previousTrack}
+					onclick={() => player.previousTrack()}
 					class="text-neutral-400 hover:text-white transition cursor-pointer p-1"
 					title="Previous Song"
 				>
@@ -1010,11 +825,11 @@
 				<!-- Play/Pause Button -->
 				<button
 					type="button"
-					onclick={togglePlay}
+					onclick={() => player.togglePlay()}
 					class="w-9 h-9 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:scale-105 active:scale-95 text-neutral-950 flex items-center justify-center shadow-lg shadow-emerald-500/25 transition cursor-pointer"
 					title="Play / Pause (Space)"
 				>
-					{#if isPlaying}
+					{#if player.isPlaying}
 						<Pause class="w-4 h-4 fill-current" />
 					{:else}
 						<Play class="w-4 h-4 fill-current ml-0.5" />
@@ -1024,7 +839,7 @@
 				<!-- Next -->
 				<button
 					type="button"
-					onclick={nextTrack}
+					onclick={() => player.nextTrack()}
 					class="text-neutral-400 hover:text-white transition cursor-pointer p-1"
 					title="Next Song"
 				>
@@ -1034,11 +849,11 @@
 				<!-- Repeat -->
 				<button
 					type="button"
-					onclick={toggleRepeat}
-					class="p-1.5 rounded-full transition cursor-pointer relative {repeatMode !== 'off' ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}"
-					title="Repeat: {repeatMode}"
+					onclick={() => player.toggleRepeat()}
+					class="p-1.5 rounded-full transition cursor-pointer relative {player.repeatMode !== 'off' ? 'text-emerald-400' : 'text-neutral-400 hover:text-white'}"
+					title="Repeat: {player.repeatMode}"
 				>
-					{#if repeatMode === 'one'}
+					{#if player.repeatMode === 'one'}
 						<Repeat1 class="w-4 h-4" />
 					{:else}
 						<Repeat class="w-4 h-4" />
@@ -1048,19 +863,19 @@
 
 			<!-- Seekbar / Scrubber -->
 			<div class="w-full flex items-center gap-2 text-[10px] font-mono text-neutral-400 tabular-nums">
-				<span class="w-8 text-right">{formatTime(currentTime)}</span>
+				<span class="w-8 text-right">{formatTime(player.currentTime)}</span>
 				<div class="flex-1 relative flex items-center">
 					<input
 						type="range"
 						min="0"
-						max={duration || 100}
+						max={player.duration || 100}
 						step="0.1"
-						value={currentTime}
-						oninput={(e) => seekTo(parseFloat(e.currentTarget.value))}
+						value={player.currentTime}
+						oninput={(e) => player.seekTo(parseFloat(e.currentTarget.value))}
 						class="w-full h-1 bg-neutral-800 hover:bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
 					/>
 				</div>
-				<span class="w-8 text-left">{formatTime(duration)}</span>
+				<span class="w-8 text-left">{formatTime(player.duration)}</span>
 			</div>
 		</div>
 
@@ -1090,13 +905,13 @@
 			<div class="flex items-center gap-1.5">
 				<button
 					type="button"
-					onclick={toggleMute}
+					onclick={() => player.toggleMute()}
 					class="text-neutral-400 hover:text-white transition cursor-pointer p-1"
 					title="Mute / Unmute (M)"
 				>
-					{#if isMuted || volume === 0}
+					{#if player.isMuted || player.volume === 0}
 						<VolumeX class="w-4 h-4" />
-					{:else if volume < 0.5}
+					{:else if player.volume < 0.5}
 						<Volume1 class="w-4 h-4" />
 					{:else}
 						<Volume2 class="w-4 h-4" />
@@ -1108,8 +923,8 @@
 					min="0"
 					max="1"
 					step="0.01"
-					value={isMuted ? 0 : volume}
-					oninput={(e) => handleVolumeChange(parseFloat(e.currentTarget.value))}
+					value={player.isMuted ? 0 : player.volume}
+					oninput={(e) => player.setVolume(parseFloat(e.currentTarget.value))}
 					class="w-16 sm:w-20 h-1 bg-neutral-800 hover:bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
 				/>
 			</div>

@@ -104,6 +104,11 @@ This document preserves persistent context, architectural conventions, recent ch
     - Resolved full-page browser scrolling on `/player` by dynamically conditioning `src/routes/+layout.svelte` to apply `h-[100dvh] overflow-hidden` and omit the global footer when viewing `/player`.
     - Constrained scrolling strictly to inner containers (`overflow-y-auto min-h-0` on tracklist table, library drawer, and lyrics panel) so mouse wheel scrolling smoothly moves songs without shifting the page layout.
     - Redesigned player with a bespoke Track Vault audiophile studio aesthetic: obsidian glassmorphic panels (`bg-neutral-900/60 backdrop-blur-xl`), floating rounded studio bottom dock (`bg-neutral-900/85 backdrop-blur-2xl shadow-2xl`), vibrant gradient play button (`from-emerald-500 to-teal-400`), high-res vinyl album sleeve with ambient emerald glow, and studio teleprompter lyrics.
+18. **Persistent Background Audio Across Tabs & Player Lyrics Refinement**:
+    - Centralized audio playback into a singleton Svelte 5 store (`src/lib/services/player.svelte.ts`) and mounted a persistent `<audio>` element inside root `+layout.svelte`.
+    - Enabled uninterrupted background music playback when navigating between any pages (`/`, `/issues`, `/lrc-maker`, `/scan`, `/settings`) and across browser tabs.
+    - Added floating `GlobalMiniPlayer.svelte` dock on non-player pages with album art, track details, play/pause, skip, progress scrubber, volume, open studio player shortcut, and stop/close dismiss button.
+    - Refined lyrics typography in `/player`: enlarged default inactive lines to `text-[15px] font-medium leading-relaxed` and active singing line to `text-[17px] font-bold leading-relaxed text-emerald-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.35)] bg-emerald-950/20`, eliminating jarring 2x size jumps and layout shifts.
 
 ---
 
