@@ -333,8 +333,12 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 		}
 	}
 
+	const selectParams: (string | number)[] = [];
+	const whereParams: (string | number)[] = [];
+
 	if (trackConditions.length > 0) {
 		sql += `, (SELECT COUNT(*) FROM tracks t2 WHERE t2.album_id = a.id AND ${trackConditions.join(' AND ')}) as matched_tracks_count`;
+		selectParams.push(...trackParams);
 	}
 
 	sql += `
@@ -343,18 +347,17 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 	`;
 
 	const conditions: string[] = [];
-	const params: (string | number)[] = [];
 
 	if (trackConditions.length > 0) {
 		const subConds = trackConditions.map((c) => c.replace(/t2\./g, ''));
 		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE ${subConds.join(' AND ')})`);
-		params.push(...trackParams);
+		whereParams.push(...trackParams);
 	}
 
 	if (effectiveText && effectiveText.trim()) {
 		conditions.push('(a.title LIKE ? OR a.artist LIKE ? OR a.genre LIKE ? OR a.id IN (SELECT album_id FROM tracks WHERE title LIKE ? OR artist LIKE ?))');
 		const q = `%${effectiveText.trim()}%`;
-		params.push(q, q, q, q, q);
+		whereParams.push(q, q, q, q, q);
 	}
 
 	if (filter === 'needs_attention') {
@@ -381,7 +384,8 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 
 	sql += ` GROUP BY a.id ORDER BY a.artist COLLATE NOCASE ASC, a.release_year ASC, a.title COLLATE NOCASE ASC`;
 
-	const albums = db.prepare(sql).all(...params) as Album[];
+	const finalParams = [...selectParams, ...whereParams];
+	const albums = db.prepare(sql).all(...finalParams) as Album[];
 	for (const alb of albums) {
 		if (alb.fixer_rules) {
 			try {

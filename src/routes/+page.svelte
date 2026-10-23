@@ -40,6 +40,13 @@
 	let selectedCensorship = $state(data.activeCensorship || 'all');
 	let selectedLyrics = $state(data.activeLyrics || 'all');
 	let currentView = $state<'albums' | 'tracks'>(data.activeView || 'albums');
+	let showFilters = $state(false);
+
+	const activeFilterCount = $derived(
+		(selectedFormat !== 'all' && selectedFormat !== '' ? 1 : 0) +
+		(selectedCensorship !== 'all' && selectedCensorship !== '' ? 1 : 0) +
+		(selectedLyrics !== 'all' && selectedLyrics !== '' ? 1 : 0)
+	);
 
 	let tracksList = $state<Track[]>([...data.matchingTracks]);
 
@@ -133,295 +140,234 @@
 </script>
 
 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-	<!-- Top Stats & Health Banner -->
-	<section class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+	<!-- Top Stats Banner -->
+	<section class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
 		<!-- Health Score Card -->
-		<div class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur">
+		<div class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-sm backdrop-blur">
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Vault Health</span>
+				<span class="text-xs font-semibold text-neutral-400">Vault Health</span>
 				<Sparkles class="h-4 w-4 text-emerald-400" />
 			</div>
-			<div class="mt-3 flex items-baseline gap-2">
-				<span class="text-3xl font-black tracking-tight {data.stats.health_score >= 80 ? 'text-emerald-400' : data.stats.health_score >= 50 ? 'text-amber-400' : 'text-rose-400'}">
-					{data.stats.health_score}%
-				</span>
-				<span class="text-xs text-neutral-400">pristine tracks</span>
+			<div class="mt-2 text-2xl font-black {data.stats.health_score >= 80 ? 'text-emerald-400' : data.stats.health_score >= 50 ? 'text-amber-400' : 'text-rose-400'}">
+				{data.stats.health_score}%
 			</div>
-			<div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+			<div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
 				<div
 					class="h-full rounded-full transition-all duration-500 {data.stats.health_score >= 80 ? 'bg-emerald-500' : data.stats.health_score >= 50 ? 'bg-amber-500' : 'bg-rose-500'}"
 					style="width: {data.stats.health_score}%"
 				></div>
 			</div>
-			<div class="mt-2.5 flex items-center justify-between text-[11px] text-neutral-400">
-				<span class="flex items-center gap-1 text-emerald-400 font-medium">
-					<CheckCircle2 class="h-3 w-3" />
-					{data.stats.checked_tracks_count || 0}/{data.stats.total_tracks} verified
-				</span>
-				<span>{Math.round(((data.stats.checked_tracks_count || 0) / (data.stats.total_tracks || 1)) * 100)}% audited</span>
-			</div>
+			<p class="mt-2 text-[11px] text-neutral-400">
+				<strong class="text-emerald-400 font-semibold">{data.stats.checked_tracks_count || 0}/{data.stats.total_tracks}</strong> verified
+			</p>
 		</div>
 
 		<!-- Audio Formats Card -->
 		<div
-			class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur cursor-pointer hover:border-emerald-700/50 transition"
+			class="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-sm backdrop-blur cursor-pointer hover:border-neutral-700 transition"
 			onclick={() => quickSearch('!flac')}
-			title="Click to view all non-FLAC files (!flac)"
 			role="button"
 			tabindex="0"
 			onkeydown={(e) => { if (e.key === 'Enter') quickSearch('!flac'); }}
 		>
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Audio Formats</span>
+				<span class="text-xs font-semibold text-neutral-400">Formats</span>
 				<Disc3 class="h-4 w-4 text-teal-400" />
 			</div>
-			<div class="mt-3 flex items-baseline gap-2">
-				<span class="text-3xl font-black tracking-tight text-white">
-					{data.stats.flac_count}
-				</span>
-				<span class="text-xs text-emerald-400 font-medium">FLAC / Lossless</span>
+			<div class="mt-2 text-2xl font-black text-white">
+				{data.stats.flac_count} <span class="text-xs font-normal text-emerald-400">FLAC</span>
 			</div>
-			<p class="mt-2 text-xs text-neutral-400">
-				<span class="text-amber-400 font-semibold">{data.stats.mp3_count + data.stats.other_format_count} non-FLAC</span> (Click to filter !flac)
+			<p class="mt-2 text-[11px] text-neutral-400">
+				<span class="text-amber-400 font-semibold">{data.stats.mp3_count + data.stats.other_format_count}</span> lossy (!flac)
 			</p>
 		</div>
 
-		<!-- Censorship Tracker Card -->
+		<!-- Censored Tracker Card -->
 		<a
 			href="/issues?type=censored"
-			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur transition hover:border-neutral-700 hover:bg-neutral-900/80"
+			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-sm backdrop-blur transition hover:border-neutral-700"
 		>
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Censored Tracks</span>
+				<span class="text-xs font-semibold text-neutral-400">Censored</span>
 				<ShieldAlert class="h-4 w-4 text-rose-400 group-hover:scale-110 transition" />
 			</div>
-			<div class="mt-3 flex items-baseline gap-2">
-				<span class="text-3xl font-black tracking-tight {data.stats.censored_count > 0 ? 'text-rose-400' : 'text-neutral-300'}">
-					{data.stats.censored_count}
-				</span>
-				<span class="text-xs text-neutral-400">radio edits</span>
+			<div class="mt-2 text-2xl font-black {data.stats.censored_count > 0 ? 'text-rose-400' : 'text-neutral-300'}">
+				{data.stats.censored_count}
 			</div>
-			<p class="mt-2 text-xs text-neutral-400 group-hover:text-emerald-300 transition flex items-center gap-1">
-				<span>Need explicit version</span>
-				<ArrowRight class="h-3 w-3" />
+			<p class="mt-2 text-[11px] text-neutral-500 flex items-center justify-between">
+				<span>Radio edits</span>
+				<ArrowRight class="h-3 w-3 text-neutral-500 group-hover:text-emerald-400 transition" />
 			</p>
 		</a>
 
 		<!-- Lyrics Coverage Card -->
 		<a
 			href="/issues?type=missing_lyrics"
-			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur transition hover:border-neutral-700 hover:bg-neutral-900/80"
+			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-sm backdrop-blur transition hover:border-neutral-700"
 		>
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Lyrics Status</span>
+				<span class="text-xs font-semibold text-neutral-400">Missing Lyrics</span>
 				<FileText class="h-4 w-4 text-emerald-400 group-hover:scale-110 transition" />
 			</div>
-			<div class="mt-3 flex items-baseline gap-2">
-				<span class="text-3xl font-black tracking-tight {data.stats.missing_lyrics_count > 0 ? 'text-amber-400' : 'text-emerald-400'}">
-					{data.stats.missing_lyrics_count}
-				</span>
-				<span class="text-xs text-neutral-400">missing lyrics</span>
+			<div class="mt-2 text-2xl font-black {data.stats.missing_lyrics_count > 0 ? 'text-amber-400' : 'text-emerald-400'}">
+				{data.stats.missing_lyrics_count}
 			</div>
-			<p class="mt-2 text-xs text-neutral-400">
-				{data.stats.synced_lyrics_count} Synced .LRC {#if data.stats.unsynced_lyrics_count > 0}• <span class="text-amber-400">{data.stats.unsynced_lyrics_count} Unsynced</span>{/if}
+			<p class="mt-2 text-[11px] text-neutral-500">
+				{data.stats.synced_lyrics_count} synced .lrc
 			</p>
 		</a>
 
 		<!-- Bad Quality Card -->
 		<a
 			href="/issues?type=bad_quality"
-			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg backdrop-blur transition hover:border-neutral-700 hover:bg-neutral-900/80"
+			class="group relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 shadow-sm backdrop-blur transition hover:border-neutral-700"
 		>
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bad Quality Rips</span>
+				<span class="text-xs font-semibold text-neutral-400">Low Quality</span>
 				<TriangleAlert class="h-4 w-4 text-rose-400 group-hover:scale-110 transition" />
 			</div>
-			<div class="mt-3 flex items-baseline gap-2">
-				<span class="text-3xl font-black tracking-tight {data.stats.bad_quality_count > 0 ? 'text-rose-400' : 'text-emerald-400'}">
-					{data.stats.bad_quality_count}
-				</span>
-				<span class="text-xs text-neutral-400">to upgrade</span>
+			<div class="mt-2 text-2xl font-black {data.stats.bad_quality_count > 0 ? 'text-rose-400' : 'text-emerald-400'}">
+				{data.stats.bad_quality_count}
 			</div>
-			<p class="mt-2 text-xs text-neutral-400 group-hover:text-emerald-300 transition flex items-center gap-1">
-				<span>Low bitrate / distorted</span>
-				<ArrowRight class="h-3 w-3" />
+			<p class="mt-2 text-[11px] text-neutral-500 flex items-center justify-between">
+				<span>Needs upgrade</span>
+				<ArrowRight class="h-3 w-3 text-neutral-500 group-hover:text-emerald-400 transition" />
 			</p>
 		</a>
 	</section>
 
-	<!-- Advanced Search & Filter Section -->
-	<section class="mb-6 space-y-3 rounded-3xl border border-neutral-800 bg-neutral-900/40 p-4 sm:p-5 shadow-lg">
-		<!-- Search Form & View Switcher -->
-		<div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+	<!-- Search & Filters Section -->
+	<section class="mb-6 space-y-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3.5 sm:p-4 shadow-md">
+		<!-- Search Form, Filter Toggle & View Switcher -->
+		<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
 			<!-- Query Input -->
-			<form onsubmit={handleSearchSubmit} class="relative flex-1 max-w-2xl">
-				<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+			<form onsubmit={handleSearchSubmit} class="relative flex-1">
+				<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
 				<input
 					type="text"
 					bind:value={searchQuery}
-					placeholder="Search albums, artists, or specific filters: !flac, censored, !missing, eminem !flac..."
-					class="w-full rounded-2xl border border-neutral-700 bg-neutral-950 pl-10 pr-24 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					placeholder="Search artists, albums, or tags (!flac, censored...)"
+					class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-9 pr-20 py-2 text-xs sm:text-sm text-neutral-100 placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 				/>
-				<div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+				<div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
 					{#if searchQuery}
 						<button
 							type="button"
 							onclick={() => { searchQuery = ''; applyFilters({ q: '' }); }}
 							class="rounded-lg p-1 text-neutral-500 hover:text-white"
-							title="Clear search"
 						>
-							<RotateCcw class="h-3.5 w-3.5" />
+							<RotateCcw class="h-3 w-3" />
 						</button>
 					{/if}
 					<button
 						type="submit"
-						class="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 shadow-sm shadow-emerald-600/30 transition"
+						class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition"
 					>
 						Search
 					</button>
 				</div>
 			</form>
 
-			<!-- View Mode Toggle: Albums vs Song Files -->
-			<div class="flex items-center gap-1 rounded-2xl border border-neutral-800 bg-neutral-950 p-1 self-start sm:self-auto">
+			<div class="flex items-center gap-2">
+				<!-- Filters Expand Button -->
 				<button
 					type="button"
-					onclick={() => applyFilters({ view: 'albums' })}
-					class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {currentView === 'albums' ? 'bg-emerald-600 text-white shadow shadow-emerald-600/30' : 'text-neutral-400 hover:text-white'}"
+					onclick={() => (showFilters = !showFilters)}
+					class="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition {showFilters || activeFilterCount > 0 ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-300' : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-neutral-600'}"
 				>
-					<Grid class="h-3.5 w-3.5" />
-					<span>Albums ({data.albums.length})</span>
+					<SlidersHorizontal class="h-3.5 w-3.5" />
+					<span>Filters</span>
+					{#if activeFilterCount > 0}
+						<span class="rounded-full bg-emerald-500 px-1.5 py-0.2 text-[10px] font-bold text-black">
+							{activeFilterCount}
+						</span>
+					{/if}
 				</button>
-				<button
-					type="button"
-					onclick={() => applyFilters({ view: 'tracks' })}
-					class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {currentView === 'tracks' ? 'bg-emerald-600 text-white shadow shadow-emerald-600/30' : 'text-neutral-400 hover:text-white'}"
-				>
-					<ListMusic class="h-3.5 w-3.5" />
-					<span>Song Files ({data.totalMatchingTracks})</span>
-				</button>
+
+				<!-- View Mode Toggle: Albums vs Song Files -->
+				<div class="flex items-center rounded-xl border border-neutral-800 bg-neutral-950 p-0.5">
+					<button
+						type="button"
+						onclick={() => applyFilters({ view: 'albums' })}
+						class="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition {currentView === 'albums' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white'}"
+					>
+						<Grid class="h-3.5 w-3.5" />
+						<span>Albums ({data.albums.length})</span>
+					</button>
+					<button
+						type="button"
+						onclick={() => applyFilters({ view: 'tracks' })}
+						class="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition {currentView === 'tracks' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white'}"
+					>
+						<ListMusic class="h-3.5 w-3.5" />
+						<span>Songs ({data.totalMatchingTracks})</span>
+					</button>
+				</div>
 			</div>
 		</div>
 
-		<!-- Direct Dropdowns: Specific Format, Censorship, Lyrics, and Quality -->
-		<div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-neutral-800/60 text-xs">
-			<span class="text-[11px] font-semibold text-neutral-400 flex items-center gap-1">
-				<Filter class="h-3 w-3 text-emerald-400" />
-				Filters:
-			</span>
+		<!-- Expandable Dropdowns -->
+		{#if showFilters || activeFilterCount > 0}
+			<div class="flex flex-wrap items-center gap-2 pt-2 border-t border-neutral-800/60 text-xs">
+				<select
+					value={selectedFormat}
+					onchange={(e) => applyFilters({ format: e.currentTarget.value })}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedFormat !== 'all' && selectedFormat !== '' ? 'border-emerald-500 text-emerald-300' : ''}"
+				>
+					<option value="all">All Formats</option>
+					<option value="!FLAC">!FLAC (Non-FLAC)</option>
+					<option value="FLAC">FLAC</option>
+					<option value="MP3">MP3</option>
+					<option value="MP3_320">MP3 320k</option>
+					<option value="MP3_V0">MP3 V0</option>
+					<option value="MP3_128">MP3 128k</option>
+					<option value="AAC_256">AAC</option>
+					<option value="WAV">WAV</option>
+				</select>
 
-			<!-- Specific Format Dropdown (including !FLAC / Non-FLAC) -->
-			<select
-				value={selectedFormat}
-				onchange={(e) => applyFilters({ format: e.currentTarget.value })}
-				class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-xs font-medium text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedFormat !== 'all' ? 'border-emerald-500 text-emerald-300 bg-emerald-950/40' : ''}"
-			>
-				<option value="all">All Formats</option>
-				<option value="!FLAC">!FLAC (All Non-FLAC Files)</option>
-				<option value="FLAC">FLAC Lossless</option>
-				<option value="MP3">MP3 (All Bitrates)</option>
-				<option value="MP3_320">MP3 320kbps</option>
-				<option value="MP3_V0">MP3 V0</option>
-				<option value="MP3_128">MP3 128kbps</option>
-				<option value="AAC_256">AAC / M4A</option>
-				<option value="WAV">WAV</option>
-				<option value="ALAC">ALAC</option>
-				<option value="OGG">OGG</option>
-			</select>
+				<select
+					value={selectedCensorship}
+					onchange={(e) => applyFilters({ censor: e.currentTarget.value })}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedCensorship !== 'all' && selectedCensorship !== '' ? 'border-emerald-500 text-emerald-300' : ''}"
+				>
+					<option value="all">All Censorship</option>
+					<option value="censored">Censored</option>
+					<option value="explicit">Explicit</option>
+					<option value="clean_original">Clean</option>
+					<option value="!censored">!Censored</option>
+				</select>
 
-			<!-- Specific Censorship Dropdown -->
-			<select
-				value={selectedCensorship}
-				onchange={(e) => applyFilters({ censor: e.currentTarget.value })}
-				class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-xs font-medium text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedCensorship !== 'all' ? 'border-emerald-500 text-emerald-300 bg-emerald-950/40' : ''}"
-			>
-				<option value="all">All Censorship</option>
-				<option value="censored">Censored Only (Radio Edits)</option>
-				<option value="explicit">Explicit Only</option>
-				<option value="clean_original">Clean Original</option>
-				<option value="!censored">!Censored (Not Censored)</option>
-			</select>
+				<select
+					value={selectedLyrics}
+					onchange={(e) => applyFilters({ lyrics: e.currentTarget.value })}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedLyrics !== 'all' && selectedLyrics !== '' ? 'border-emerald-500 text-emerald-300' : ''}"
+				>
+					<option value="all">All Lyrics</option>
+					<option value="missing">No Lyrics</option>
+					<option value="unsynced_lrc">Unsynced LRC</option>
+					<option value="synced_lrc">Synced LRC</option>
+					<option value="plain_txt">Plain TXT</option>
+					<option value="!missing">Has Lyrics</option>
+				</select>
 
-			<!-- Specific Lyrics Dropdown -->
-			<select
-				value={selectedLyrics}
-				onchange={(e) => applyFilters({ lyrics: e.currentTarget.value })}
-				class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-xs font-medium text-neutral-200 focus:outline-none focus:border-emerald-500 {selectedLyrics !== 'all' ? 'border-emerald-500 text-emerald-300 bg-emerald-950/40' : ''}"
-			>
-				<option value="all">All Lyrics Status</option>
-				<option value="missing">Missing Lyrics</option>
-				<option value="unsynced_lrc">Unsynced LRC</option>
-				<option value="synced_lrc">Synced LRC</option>
-				<option value="plain_txt">Plain TXT</option>
-				<option value="!missing">!Missing (Has Any Lyrics)</option>
-			</select>
-
-			<!-- Quick Syntax Chips -->
-			<div class="hidden sm:flex items-center gap-1.5 text-[11px] text-neutral-400 ml-auto">
-				<span class="text-neutral-500">Quick syntax:</span>
-				<button
-					type="button"
-					onclick={() => quickSearch('!flac')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300 hover:text-white"
-					title="Filter all non-flac files"
-				>
-					!flac
-				</button>
-				<button
-					type="button"
-					onclick={() => quickSearch('censored')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-rose-300 hover:text-white"
-				>
-					censored
-				</button>
-				<button
-					type="button"
-					onclick={() => quickSearch('!missing')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-sky-300 hover:text-white"
-				>
-					!missing
-				</button>
-				<button
-					type="button"
-					onclick={() => quickSearch('synced')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-teal-300 hover:text-white"
-				>
-					synced
-				</button>
-				<button
-					type="button"
-					onclick={() => quickSearch('!checked')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-amber-300 hover:text-white"
-					title="Show songs not yet manually checked"
-				>
-					!checked
-				</button>
-				<button
-					type="button"
-					onclick={() => quickSearch('checked')}
-					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300 hover:text-white"
-					title="Show songs manually checked & verified"
-				>
-					checked
-				</button>
-				{#if data.searchQuery || data.activeFilter !== 'all' || selectedFormat !== 'all' || selectedCensorship !== 'all' || selectedLyrics !== 'all'}
+				{#if activeFilterCount > 0 || searchQuery || data.activeFilter !== 'all'}
 					<button
 						type="button"
 						onclick={resetAll}
-						class="text-neutral-400 hover:text-rose-400 ml-1 text-[11px] underline"
+						class="text-neutral-400 hover:text-rose-400 text-xs underline ml-auto"
 					>
-						Reset
+						Reset all
 					</button>
 				{/if}
 			</div>
-		</div>
+		{/if}
 
-		<!-- Status Category Pills -->
+		<!-- Simplified Essential Category Pills -->
 		<div class="flex flex-wrap items-center gap-1.5 pt-1">
 			<button
 				type="button"
 				onclick={() => setFilterPill('all')}
-				class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'all' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+				class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			>
 				All Albums
 			</button>
@@ -432,14 +378,13 @@
 				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'needs_attention' ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			>
 				<TriangleAlert class="h-3 w-3" />
-				Needs Attention
+				Needs Fix ({data.stats.total_needs_attention})
 			</button>
 
 			<button
 				type="button"
 				onclick={() => setFilterPill('unverified')}
 				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'unverified' ? 'bg-amber-700 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-				title="Albums with unverified tracks"
 			>
 				<span>Unverified</span>
 			</button>
@@ -447,52 +392,10 @@
 			<button
 				type="button"
 				onclick={() => setFilterPill('verified')}
-				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'verified' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-				title="Albums where all tracks are manually verified"
+				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'verified' ? 'bg-emerald-700 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			>
 				<CheckCircle2 class="h-3 w-3 text-emerald-300" />
 				<span>100% Verified</span>
-			</button>
-
-			<button
-				type="button"
-				onclick={() => setFilterPill('bad_quality')}
-				class="rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'bad_quality' ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-			>
-				Bad Quality
-			</button>
-
-			<button
-				type="button"
-				onclick={() => setFilterPill('censored')}
-				class="rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'censored' ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-			>
-				Censored
-			</button>
-
-			<button
-				type="button"
-				onclick={() => setFilterPill('missing_lyrics')}
-				class="rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'missing_lyrics' ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-			>
-				Missing Lyrics
-			</button>
-
-			<button
-				type="button"
-				onclick={() => setFilterPill('unsynced_lyrics')}
-				class="rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'unsynced_lyrics' ? 'bg-amber-700 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-			>
-				Unsynced LRC
-			</button>
-
-			<button
-				type="button"
-				onclick={() => setFilterPill('all_good')}
-				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'all_good' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
-			>
-				<CheckCircle2 class="h-3 w-3" />
-				Vault Ready
 			</button>
 		</div>
 	</section>

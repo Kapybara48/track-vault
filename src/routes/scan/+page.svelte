@@ -44,6 +44,16 @@
 	let expandedAlbums = $state<{ [key: string]: boolean }>({});
 	let importingAlbumKey = $state<string | null>(null);
 	let importedAlbumIds = $state<{ [key: string]: number }>({});
+	let isBatchImporting = $state(false);
+	let batchProgress = $state({ current: 0, total: 0 });
+
+	const selectedAlbumsToImport = $derived(
+		scannedAlbums.filter((a) => !a.already_in_vault && a.tracks.some((t) => t.selected))
+	);
+
+	const totalSelectedTracksCount = $derived(
+		selectedAlbumsToImport.reduce((sum, a) => sum + a.tracks.filter((t) => t.selected).length, 0)
+	);
 
 	// Autocomplete state
 	let pathSuggestions = $state<string[]>([]);
@@ -175,6 +185,47 @@
 		}
 	}
 
+	async function importAllSelected() {
+		const toImport = selectedAlbumsToImport;
+		if (toImport.length === 0) {
+			alert('No selected albums to import.');
+			return;
+		}
+
+		isBatchImporting = true;
+		batchProgress = { current: 0, total: toImport.length };
+
+		try {
+			for (let i = 0; i < toImport.length; i++) {
+				const album = toImport[i];
+				batchProgress.current = i + 1;
+				const selectedPaths = album.tracks.filter((t) => t.selected).map((t) => t.file_path);
+				if (selectedPaths.length === 0) continue;
+
+				const res = await fetch('/api/library/import', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						album,
+						selectedTrackPaths: selectedPaths
+					})
+				});
+
+				if (res.ok) {
+					const data = await res.json();
+					album.already_in_vault = true;
+					importedAlbumIds[album.album_key] = data.albumId;
+				}
+			}
+			await invalidateAll();
+		} catch (err) {
+			console.error('Batch import failed:', err);
+			alert('Some albums could not be imported.');
+		} finally {
+			isBatchImporting = false;
+		}
+	}
+
 	// Filtered view of scanned albums & tracks
 	const displayedAlbums = $derived.by(() => {
 		const query = scanSearch.trim().toLowerCase();
@@ -255,23 +306,40 @@
 				Music File Scanner
 			</div>
 			<h1 class="mt-1 text-2xl sm:text-3xl font-black text-white">
-				Scan Existing Library & Import Tracks
+				Scan Library & Import Tracks
 			</h1>
-			<p class="mt-1 text-sm text-neutral-400 max-w-2xl">
-				Scan your local audio files (FLAC, MP3, etc.). Track Vault reads embedded metadata and <strong class="text-neutral-200">MusicBrainz tags</strong>, detects companion <strong class="text-neutral-200">.lrc lyrics</strong>, and lets you choose exactly which songs to add.
+			<p class="mt-1 text-xs text-neutral-400">
+				Scan local files, read metadata and lyrics, and import to your vault.
 			</p>
 		</div>
 
-		<!-- Rescan Controls -->
-		<div class="flex items-center gap-2">
+		<!-- Actions -->
+		<div class="flex flex-wrap items-center gap-2">
+			{#if selectedAlbumsToImport.length > 0}
+				<button
+					type="button"
+					onclick={importAllSelected}
+					disabled={isBatchImporting || isScanning}
+					class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
+				>
+					{#if isBatchImporting}
+						<FolderSync class="h-4 w-4 animate-spin" />
+						<span>Importing ({batchProgress.current}/{batchProgress.total})...</span>
+					{:else}
+						<Check class="h-4 w-4" />
+						<span>Import All Selected ({selectedAlbumsToImport.length} albums, {totalSelectedTracksCount} tracks)</span>
+					{/if}
+				</button>
+			{/if}
+
 			<button
 				type="button"
 				onclick={rescan}
-				disabled={isScanning}
-				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:opacity-50"
+				disabled={isScanning || isBatchImporting}
+				class="flex items-center gap-2 rounded-xl bg-neutral-800 px-4 py-2.5 text-xs font-bold text-neutral-200 transition hover:bg-neutral-700 disabled:opacity-50"
 			>
 				<FolderSync class="h-4 w-4 {isScanning ? 'animate-spin' : ''}" />
-				<span>{isScanning ? 'Scanning Files...' : 'Rescan Library'}</span>
+				<span>{isScanning ? 'Scanning...' : 'Rescan Library'}</span>
 			</button>
 		</div>
 	</div>
@@ -285,14 +353,9 @@
 						<Folder class="h-5 w-5" />
 					</div>
 					<div class="min-w-0 flex-1">
-						<div class="flex items-center justify-between">
-							<label class="block text-xs font-semibold text-neutral-300">
-								Server Music Directory Path
-							</label>
-							<span class="text-[11px] text-neutral-500">
-								Autocompletes from system/container
-							</span>
-						</div>
+						<label class="block text-xs font-semibold text-neutral-300">
+							Server Music Directory Path
+						</label>
 						<div class="relative mt-1">
 							<input
 								type="text"
@@ -451,9 +514,16 @@
 					<span>
 						Showing <strong class="text-white font-bold">{displayedAlbums.length}</strong> of {scannedAlbums.length} albums
 					</span>
-					<span class="text-neutral-500">
-						Expand any album to customize individual song selection, quality, format, or lyrics
-					</span>
+					{#if selectedAlbumsToImport.length > 0}
+						<button
+							type="button"
+							onclick={importAllSelected}
+							disabled={isBatchImporting}
+							class="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition"
+						>
+							Import All Selected ({selectedAlbumsToImport.length} albums) →
+						</button>
+					{/if}
 				</div>
 			</div>
 
@@ -625,10 +695,6 @@
 										Deselect All
 									</button>
 								</div>
-
-								<span class="text-neutral-500 text-[11px]">
-									Auto-detected from tags & folder files
-								</span>
 							</div>
 
 							<div class="divide-y divide-neutral-800/50 rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950">

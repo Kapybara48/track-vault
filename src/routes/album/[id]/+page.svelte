@@ -422,46 +422,46 @@
 				<!-- Issue Badges & Stats Bar -->
 				<div class="mt-6 flex flex-wrap items-center gap-2 border-t border-neutral-800/60 pt-4">
 					{#if issuesCount === 0}
-						<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-950/80 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-700">
+						<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-950/80 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-700 whitespace-nowrap">
 							<CheckCircle2 class="h-4 w-4" />
-							All Tracks Vault Ready
+							Vault Ready
 						</span>
 					{:else}
-						<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-950/80 px-3 py-1 text-xs font-semibold text-amber-300 border border-amber-600">
+						<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-950/80 px-3 py-1 text-xs font-semibold text-amber-300 border border-amber-600 whitespace-nowrap">
 							<AlertTriangle class="h-4 w-4" />
-							{issuesCount} Tracks Need Attention
+							{issuesCount} Needs Fix
 						</span>
 					{/if}
 
-					<!-- Verification Audit Progress Badge -->
+					<!-- Verification Progress Badge -->
 					<span
-						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition {checkedCount === tracks.length && tracks.length > 0 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : 'bg-neutral-900/80 text-neutral-300 border-neutral-700'}"
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition whitespace-nowrap {checkedCount === tracks.length && tracks.length > 0 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : 'bg-neutral-900/80 text-neutral-300 border-neutral-700'}"
 						title="Manually checked songs (100% verified metadata & audio)"
 					>
 						<CheckCircle2 class="h-4 w-4 {checkedCount === tracks.length && tracks.length > 0 ? 'text-emerald-400' : 'text-neutral-500'}" />
-						<span>{checkedCount} / {tracks.length} Manually Checked</span>
+						<span>{checkedCount}/{tracks.length} Checked</span>
 					</span>
 
 					{#if badQualityCount > 0}
-						<span class="rounded-lg bg-rose-950/70 px-2.5 py-1 text-xs font-medium text-rose-300 border border-rose-800">
-							{badQualityCount} Bad Quality / Low Bitrate
+						<span class="rounded-lg bg-rose-950/70 px-2.5 py-1 text-xs font-medium text-rose-300 border border-rose-800 whitespace-nowrap">
+							{badQualityCount} Bad Quality
 						</span>
 					{/if}
 
 					{#if censoredCount > 0}
-						<span class="rounded-lg bg-rose-950/70 px-2.5 py-1 text-xs font-medium text-rose-300 border border-rose-800">
-							{censoredCount} Censored (Needs Uncensored)
+						<span class="rounded-lg bg-rose-950/70 px-2.5 py-1 text-xs font-medium text-rose-300 border border-rose-800 whitespace-nowrap">
+							{censoredCount} Censored
 						</span>
 					{/if}
 
 					{#if missingLyricsCount > 0}
-						<span class="rounded-lg bg-amber-950/70 px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-800">
-							{missingLyricsCount} Missing Lyrics
+						<span class="rounded-lg bg-amber-950/70 px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-800 whitespace-nowrap">
+							{missingLyricsCount} No Lyrics
 						</span>
 					{/if}
 
 					{#if unsyncedLyricsCount > 0}
-						<span class="rounded-lg bg-amber-950/70 px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-800">
+						<span class="rounded-lg bg-amber-950/70 px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-800 whitespace-nowrap">
 							{unsyncedLyricsCount} Unsynced LRC
 						</span>
 					{/if}

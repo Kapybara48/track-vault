@@ -6,7 +6,8 @@
 		QUALITY_OPTIONS,
 		CENSORSHIP_OPTIONS,
 		LYRICS_OPTIONS,
-		getFormatBadgeClass
+		getFormatBadgeClass,
+		getBitrateLabel
 	} from '$lib/utils.js';
 	import {
 		Trash2,
@@ -74,36 +75,35 @@
 </script>
 
 <div
-	class="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/60 p-3.5 transition hover:bg-neutral-900/40 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}"
+	class="group relative flex flex-col gap-2 border-b border-neutral-800/60 p-3 transition hover:bg-neutral-900/40 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}"
 >
-	<!-- Left Side: Checkbox, Track Number, Title, Artist -->
-	<div class="flex items-center gap-3 min-w-0 flex-1">
-		<!-- Manual Check / Verification Checkbox -->
-		<div
-			class="flex items-center shrink-0"
-			title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked (100% verified)'}
-		>
-			<CustomCheckbox
-				checked={track.manually_checked === 1}
-				disabled={isUpdating}
-				onchange={(checked) => updateField('manually_checked', checked ? 1 : 0)}
-			/>
-		</div>
+	<!-- LINE 1: Song Info, Title, Artist, Duration & Quality / Bitrate -->
+	<div class="flex items-center justify-between gap-3 min-w-0">
+		<div class="flex items-center gap-2.5 min-w-0 flex-1">
+			<!-- Verification Checkbox -->
+			<div
+				class="flex items-center shrink-0"
+				title={track.manually_checked === 1 ? 'Marked as verified (Click to uncheck)' : 'Click to mark as verified'}
+			>
+				<CustomCheckbox
+					checked={track.manually_checked === 1}
+					disabled={isUpdating}
+					onchange={(checked) => updateField('manually_checked', checked ? 1 : 0)}
+				/>
+			</div>
 
-		<span class="w-6 text-right text-xs font-mono font-medium text-neutral-500">
-			{track.track_number}
-		</span>
+			<span class="w-6 text-right text-xs font-mono font-medium text-neutral-500 shrink-0">
+				{track.track_number}
+			</span>
 
-		<div class="min-w-0 flex-1">
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 min-w-0 flex-1">
 				<span class="truncate text-sm font-semibold {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
 					{track.title}
 				</span>
 
 				{#if track.manually_checked === 1}
 					<span
-						class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
-						title="Manually checked: 100% verified correct"
+						class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 shrink-0"
 					>
 						<CheckCircle2 class="h-3 w-3" />
 						Checked
@@ -112,42 +112,41 @@
 
 				{#if track.needs_attention}
 					<span
-						class="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/30"
-						title="Needs attention: check quality, censorship, or lyrics"
+						class="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/30 shrink-0"
 					>
 						<AlertTriangle class="h-3 w-3" />
 						Needs Fix
 					</span>
 				{/if}
 			</div>
+		</div>
 
-			<div class="flex items-center gap-3 text-xs text-neutral-400">
-				{#if track.artist}
-					<span class="truncate text-neutral-400">{track.artist}</span>
-					<span>•</span>
-				{/if}
-				<span class="font-mono text-neutral-500">{formatDuration(track.duration_ms)}</span>
+		<!-- Right side of Line 1: Artist, Duration, Format & Bitrate kb/s -->
+		<div class="flex items-center gap-2.5 text-xs text-neutral-400 shrink-0">
+			{#if track.artist}
+				<span class="truncate max-w-[150px] text-neutral-400">{track.artist}</span>
+				<span>•</span>
+			{/if}
+			<span class="font-mono text-neutral-500">{formatDuration(track.duration_ms)}</span>
 
-				{#if track.notes}
-					<span>•</span>
-					<span class="truncate italic text-neutral-500 text-[11px]" title={track.notes}>
-						"{track.notes}"
-					</span>
-				{/if}
-			</div>
+			<!-- Format & Bitrate kb/s Badge -->
+			<span class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium {getFormatBadgeClass(track.format)}">
+				<span class="font-bold uppercase font-mono">{track.format}</span>
+				<span class="opacity-40">|</span>
+				<span class="text-neutral-200 font-mono text-[10px]">{getBitrateLabel(track.format)}</span>
+			</span>
 		</div>
 	</div>
 
-	<!-- Right Side: Format, Quality, Censorship, Lyrics Controls (Direct Selection, No Tap-Through) -->
-	<div class="flex flex-wrap items-center gap-2 sm:justify-end">
-		<!-- Audio Format Selector -->
-		<div class="relative">
+	<!-- LINE 2: Direct Choice Buttons (Format, Quality, Censorship, Lyrics) + Notes & Delete -->
+	<div class="flex flex-wrap items-center justify-between gap-2 pt-1 pl-8.5">
+		<div class="flex flex-wrap items-center gap-1.5">
+			<!-- Format -->
 			<select
 				value={track.format}
 				onchange={(e) => updateField('format', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {getFormatBadgeClass(track.format)}"
-				title="Change audio format"
+				class="rounded-lg border px-2 py-1 text-xs font-semibold uppercase tracking-wide cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {getFormatBadgeClass(track.format)}"
 			>
 				{#each FORMAT_OPTIONS as opt}
 					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
@@ -155,16 +154,13 @@
 					</option>
 				{/each}
 			</select>
-		</div>
 
-		<!-- Audio Quality Rating Selector -->
-		<div class="relative">
+			<!-- Quality -->
 			<select
 				value={track.quality_rating}
 				onchange={(e) => updateField('quality_rating', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-				title="Audio quality assessment"
+				class="rounded-lg border px-2 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
 			>
 				{#each QUALITY_OPTIONS as q}
 					<option value={q.value} class="bg-neutral-900 text-neutral-200">
@@ -172,16 +168,13 @@
 					</option>
 				{/each}
 			</select>
-		</div>
 
-		<!-- Censorship Direct Selector (No Tap-Through) -->
-		<div class="relative">
+			<!-- Censorship -->
 			<select
 				value={track.censorship}
 				onchange={(e) => updateField('censorship', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-				title="Directly select censorship status"
+				class="rounded-lg border px-2 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
 			>
 				{#each CENSORSHIP_OPTIONS as opt}
 					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
@@ -189,16 +182,13 @@
 					</option>
 				{/each}
 			</select>
-		</div>
 
-		<!-- Lyrics Direct Selector (No Tap-Through) -->
-		<div class="relative">
+			<!-- Lyrics -->
 			<select
 				value={track.lyrics}
 				onchange={(e) => updateField('lyrics', e.currentTarget.value)}
 				disabled={isUpdating}
-				class="rounded-lg border px-2.5 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-				title="Directly select lyrics status"
+				class="rounded-lg border px-2 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
 			>
 				{#each LYRICS_OPTIONS as opt}
 					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
@@ -208,13 +198,19 @@
 			</select>
 		</div>
 
-		<!-- Actions: Notes & Delete -->
-		<div class="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+		<!-- Actions: Notes snippet / toggle & Delete -->
+		<div class="flex items-center gap-2 ml-auto">
+			{#if track.notes}
+				<span class="truncate italic text-neutral-400 text-[11px] max-w-[200px]" title={track.notes}>
+					"{track.notes}"
+				</span>
+			{/if}
+
 			<button
 				type="button"
 				onclick={() => (showNotes = !showNotes)}
-				class="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-				title="Add or edit notes"
+				class="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 transition"
+				title="Notes"
 			>
 				<FileText class="h-3.5 w-3.5" />
 			</button>
@@ -222,8 +218,8 @@
 			<button
 				type="button"
 				onclick={handleDelete}
-				class="rounded p-1 text-neutral-500 hover:bg-rose-950/50 hover:text-rose-400"
-				title="Delete track"
+				class="rounded p-1 text-neutral-500 hover:bg-rose-950/50 hover:text-rose-400 transition"
+				title="Delete"
 			>
 				<Trash2 class="h-3.5 w-3.5" />
 			</button>

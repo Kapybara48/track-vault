@@ -7,7 +7,8 @@
 		QUALITY_OPTIONS,
 		CENSORSHIP_OPTIONS,
 		LYRICS_OPTIONS,
-		getFormatBadgeClass
+		getFormatBadgeClass,
+		getBitrateLabel
 	} from '$lib/utils.js';
 	import {
 		TriangleAlert,
@@ -138,73 +139,70 @@
 
 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 	<!-- Page Header -->
-	<div class="mb-6">
+	<div class="mb-5">
 		<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-400">
 			<TriangleAlert class="h-4 w-4 text-emerald-400" />
 			Track Vault Fixer
 		</div>
 		<h1 class="mt-1 text-2xl sm:text-3xl font-black text-white">
-			Collection Upgrade & Issues Tracker
+			Track Fixer
 		</h1>
-		<p class="mt-1 text-sm text-neutral-400 max-w-2xl">
-			Quickly resolve songs with bad audio quality, replace censored radio edits with original uncensored releases, and fix missing or unsynced (.lrc) lyrics.
-		</p>
 	</div>
 
 	<!-- Top Issue Type Tabs -->
-	<div class="mb-6 flex flex-wrap items-center gap-2 border-b border-neutral-800 pb-4">
+	<div class="mb-5 flex flex-wrap items-center gap-2 border-b border-neutral-800 pb-3">
 		<button
 			type="button"
 			onclick={() => setIssueType('all_issues')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'all_issues' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'all_issues' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
-			<TriangleAlert class="h-4 w-4" />
+			<TriangleAlert class="h-3.5 w-3.5" />
 			All Issues ({data.stats.total_needs_attention})
 		</button>
 
 		<button
 			type="button"
 			onclick={() => setIssueType('bad_quality')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'bad_quality' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'bad_quality' ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
-			<Disc3 class="h-4 w-4" />
-			Bad Quality / Low Bitrate ({data.stats.bad_quality_count})
+			<Disc3 class="h-3.5 w-3.5" />
+			Bad Quality ({data.stats.bad_quality_count})
 		</button>
 
 		<button
 			type="button"
 			onclick={() => setIssueType('censored')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'censored' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'censored' ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
-			<ShieldAlert class="h-4 w-4" />
-			Censored / Radio Edits ({data.stats.censored_count})
+			<ShieldAlert class="h-3.5 w-3.5" />
+			Censored ({data.stats.censored_count})
 		</button>
 
 		<button
 			type="button"
 			onclick={() => setIssueType('missing_lyrics')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'missing_lyrics' ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'missing_lyrics' ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
-			<FileText class="h-4 w-4" />
+			<FileText class="h-3.5 w-3.5" />
 			Missing Lyrics ({data.stats.missing_lyrics_count})
 		</button>
 
 		<button
 			type="button"
 			onclick={() => setIssueType('unsynced_lyrics')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'unsynced_lyrics' ? 'bg-amber-700 text-white shadow-md shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'unsynced_lyrics' ? 'bg-amber-700 text-white shadow-sm shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 		>
-			<FileText class="h-4 w-4 text-amber-300" />
+			<FileText class="h-3.5 w-3.5 text-amber-300" />
 			Unsynced LRC ({data.stats.unsynced_lyrics_count})
 		</button>
 
 		<button
 			type="button"
 			onclick={() => setIssueType('unverified')}
-			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'unverified' ? 'bg-amber-700 text-white shadow-md shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition {data.activeType === 'unverified' ? 'bg-amber-700 text-white shadow-sm shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
 			title="Show songs not yet manually checked"
 		>
-			<TriangleAlert class="h-4 w-4 text-amber-400" />
+			<TriangleAlert class="h-3.5 w-3.5 text-amber-400" />
 			Unverified ({data.stats.total_tracks - (data.stats.checked_tracks_count || 0)})
 		</button>
 	</div>
@@ -313,192 +311,159 @@
 		<div class="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/30">
 			<div class="divide-y divide-neutral-800/60">
 				{#each filteredTracks as track (track.id)}
-					<div class="group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 transition hover:bg-neutral-900/50 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}">
-						<!-- Track & Album Info -->
-						<div class="flex items-center gap-4 min-w-0 flex-1">
-							<!-- Manual Checkbox -->
-							<div
-								class="flex items-center shrink-0"
-								title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked (100% verified)'}
-							>
-								<CustomCheckbox
-									checked={track.manually_checked === 1}
-									onchange={(checked) => quickFix(track.id, { manually_checked: checked ? 1 : 0 })}
-								/>
-							</div>
-
-							<!-- Album Cover Thumbnail -->
-							<a href="/album/{track.album_id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-neutral-950 border border-neutral-800">
-								{#if track.album_cover_url}
-									<img
-										src={track.album_cover_url}
-										alt={track.album_title || ''}
-										class="h-full w-full object-cover"
-										onerror={(e) => {
-											(e.currentTarget as HTMLElement).style.display = 'none';
-										}}
+					<div class="group flex flex-col gap-2.5 p-3.5 transition hover:bg-neutral-900/50 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}">
+						<!-- Line 1: Track & Album Info + Bitrate + Album Link -->
+						<div class="flex items-center justify-between gap-3 min-w-0">
+							<div class="flex items-center gap-3 min-w-0 flex-1">
+								<!-- Manual Checkbox -->
+								<div
+									class="flex items-center shrink-0"
+									title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked'}
+								>
+									<CustomCheckbox
+										checked={track.manually_checked === 1}
+										onchange={(checked) => quickFix(track.id, { manually_checked: checked ? 1 : 0 })}
 									/>
-								{:else}
-									<div class="flex h-full w-full items-center justify-center text-neutral-600">
-										<Disc class="h-6 w-6 opacity-40" />
-									</div>
-								{/if}
-							</a>
+								</div>
 
-							<!-- Titles -->
-							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2">
-									<span class="truncate font-bold text-sm {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
-										{track.title}
-									</span>
-									{#if track.manually_checked === 1}
-										<span
-											class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
-											title="Manually checked: 100% verified correct"
-										>
-											<CheckCircle2 class="h-3 w-3" />
-											Checked
+								<!-- Album Cover Thumbnail -->
+								<a href="/album/{track.album_id}" class="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-neutral-950 border border-neutral-800">
+									{#if track.album_cover_url}
+										<img
+											src={track.album_cover_url}
+											alt={track.album_title || ''}
+											class="h-full w-full object-cover"
+											onerror={(e) => {
+												(e.currentTarget as HTMLElement).style.display = 'none';
+											}}
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center text-neutral-600">
+											<Disc class="h-5 w-5 opacity-40" />
+										</div>
+									{/if}
+								</a>
+
+								<!-- Title & Meta -->
+								<div class="min-w-0 flex-1">
+									<div class="flex items-center gap-2">
+										<span class="w-5 text-right font-mono text-neutral-500 text-xs shrink-0">
+											{track.track_number}
 										</span>
-									{/if}
-									<span class="text-xs text-neutral-500 font-mono">
-										#{track.track_number}
-									</span>
-								</div>
+										<span class="truncate font-bold text-sm {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
+											{track.title}
+										</span>
+										{#if track.manually_checked === 1}
+											<span
+												class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
+											>
+												<CheckCircle2 class="h-3 w-3" />
+												Verified
+											</span>
+										{/if}
+									</div>
 
-								<div class="flex items-center gap-2 text-xs text-neutral-400 mt-0.5">
-									<span class="truncate text-neutral-300">
-										{track.artist || track.album_artist || 'Unknown Artist'}
-									</span>
-									<span>•</span>
-									<a
-										href="/album/{track.album_id}"
-										class="truncate hover:text-emerald-300 transition"
-										title="Open album"
-									>
-										{track.album_title}
-									</a>
-									{#if track.duration_ms}
+									<div class="flex flex-wrap items-center gap-1.5 text-xs text-neutral-400 mt-0.5">
+										<span class="truncate text-neutral-300">
+											{track.artist || track.album_artist || 'Unknown Artist'}
+										</span>
 										<span>•</span>
-										<span class="font-mono text-neutral-500">{formatDuration(track.duration_ms)}</span>
-									{/if}
+										<a
+											href="/album/{track.album_id}"
+											class="truncate hover:text-emerald-300 transition"
+											title="Open album"
+										>
+											{track.album_title}
+										</a>
+										{#if track.duration_ms}
+											<span>•</span>
+											<span class="font-mono text-neutral-500">{formatDuration(track.duration_ms)}</span>
+										{/if}
+										<span>•</span>
+										<span class="rounded bg-neutral-800/80 px-1.5 py-0.2 text-[10px] font-mono text-neutral-300 border border-neutral-700/60">
+											{getBitrateLabel(track.format)}
+										</span>
+									</div>
 								</div>
-
-								{#if track.notes}
-									<p class="mt-1 text-[11px] italic text-neutral-500">
-										"{track.notes}"
-									</p>
-								{/if}
 							</div>
+
+							<!-- Album Link -->
+							<a
+								href="/album/{track.album_id}"
+								class="shrink-0 rounded-lg bg-neutral-800 p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 transition"
+								title="View in Album"
+							>
+								<ArrowRight class="h-4 w-4" />
+							</a>
 						</div>
 
-						<!-- Issue Badges & Quick Action Controls -->
-						<div class="flex flex-wrap items-center gap-2 lg:justify-end">
-							<!-- Current Format & Quality -->
-							<div class="flex items-center gap-1.5">
-								<span class="rounded-lg border px-2 py-0.5 text-xs font-semibold uppercase {getFormatBadgeClass(track.format)}">
-									{track.format}
-								</span>
+						<!-- Line 2: Direct Choice Selectors + Quick Verify -->
+						<div class="flex flex-wrap items-center gap-2 pl-8 sm:pl-13">
+							<!-- Format Dropdown -->
+							<select
+								value={track.format}
+								onchange={(e) => quickFix(track.id, { format: e.currentTarget.value as AudioFormat })}
+								class="rounded-lg border px-2 py-1 text-xs font-semibold uppercase {getFormatBadgeClass(track.format)} focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+								title="Change Format"
+							>
+								{#each FORMAT_OPTIONS as opt}
+									<option value={opt.value} class="bg-neutral-900 text-neutral-200">{opt.label}</option>
+								{/each}
+							</select>
 
-								<span class="rounded-lg border px-2 py-0.5 text-xs font-medium {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color}">
-									{track.quality_rating}
-								</span>
-							</div>
+							<!-- Quality Dropdown -->
+							<select
+								value={track.quality_rating}
+								onchange={(e) => quickFix(track.id, { quality_rating: e.currentTarget.value as QualityRating })}
+								class="rounded-lg border px-2 py-1 text-xs font-medium {QUALITY_OPTIONS.find(q => q.value === track.quality_rating)?.color} focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+								title="Change Quality"
+							>
+								{#each QUALITY_OPTIONS as q}
+									<option value={q.value} class="bg-neutral-900 text-neutral-200">{q.label}</option>
+								{/each}
+							</select>
 
-							<!-- Current Censorship -->
-							<span class="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color}">
-								{#if track.censorship === 'censored'}
-									<ShieldAlert class="h-3 w-3 text-rose-400" />
-									<span>Censored</span>
-								{:else if track.censorship === 'explicit'}
-									<span class="font-bold text-amber-300">E</span>
-									<span>Explicit</span>
-								{:else}
-									<span>Clean</span>
-								{/if}
-							</span>
+							<!-- Censorship Dropdown -->
+							<select
+								value={track.censorship}
+								onchange={(e) => quickFix(track.id, { censorship: e.currentTarget.value as CensorshipStatus })}
+								class="rounded-lg border px-2 py-1 text-xs font-medium {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color} focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+								title="Change Censorship"
+							>
+								{#each CENSORSHIP_OPTIONS as c}
+									<option value={c.value} class="bg-neutral-900 text-neutral-200">{c.label}</option>
+								{/each}
+							</select>
 
-							<!-- Current Lyrics -->
-							<span class="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color}">
-								{#if track.lyrics === 'synced_lrc'}
-									<CheckCircle2 class="h-3 w-3 text-emerald-400" />
-									<span>Synced LRC</span>
-								{:else if track.lyrics === 'unsynced_lrc'}
-									<FileText class="h-3 w-3 text-amber-300" />
-									<span>Unsynced LRC</span>
-								{:else if track.lyrics === 'plain_txt'}
-									<FileText class="h-3 w-3 text-sky-400" />
-									<span>Plain TXT</span>
-								{:else if track.lyrics === 'instrumental'}
-									<span>Instrumental</span>
-								{:else}
-									<TriangleAlert class="h-3 w-3 text-rose-400" />
-									<span>No Lyrics</span>
-								{/if}
-							</span>
+							<!-- Lyrics Dropdown -->
+							<select
+								value={track.lyrics}
+								onchange={(e) => quickFix(track.id, { lyrics: e.currentTarget.value as LyricsStatus })}
+								class="rounded-lg border px-2 py-1 text-xs font-medium {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color} focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+								title="Change Lyrics"
+							>
+								{#each LYRICS_OPTIONS as l}
+									<option value={l.value} class="bg-neutral-900 text-neutral-200">{l.label}</option>
+								{/each}
+							</select>
 
-							<!-- Quick 1-Click Fix Buttons -->
-							<div class="ml-2 flex items-center gap-1.5 border-l border-neutral-800 pl-3">
-								{#if track.manually_checked !== 1}
-									<button
-										type="button"
-										onclick={() => quickFix(track.id, { manually_checked: 1 })}
-										class="rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition active:scale-95"
-										title="Mark this song as manually checked (100% verified)"
-									>
-										✓ Verify
-									</button>
-								{/if}
-								{#if track.quality_rating === 'bad' || track.quality_rating === 'needs_upgrade' || track.format !== 'FLAC'}
-									<button
-										type="button"
-										onclick={() => quickFix(track.id, { format: 'FLAC', quality_rating: 'good' })}
-										class="rounded-lg bg-teal-950/80 hover:bg-teal-900 border border-teal-700/80 px-2.5 py-1 text-xs font-semibold text-teal-300 transition active:scale-95"
-										title="Mark as upgraded to FLAC lossless"
-									>
-										+ FLAC
-									</button>
-								{/if}
-
-								{#if track.censorship === 'censored'}
-									<button
-										type="button"
-										onclick={() => quickFix(track.id, { censorship: 'explicit' })}
-										class="rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 px-2.5 py-1 text-xs font-semibold text-amber-300 transition active:scale-95"
-										title="Mark as replaced with original explicit uncensored track"
-									>
-										+ Uncensored
-									</button>
-								{/if}
-
-								{#if track.lyrics === 'missing' || track.lyrics === 'unsynced_lrc'}
-									<button
-										type="button"
-										onclick={() => quickFix(track.id, { lyrics: 'synced_lrc' })}
-										class="rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition active:scale-95"
-										title="Mark as synced .LRC lyrics"
-									>
-										+ Synced LRC
-									</button>
-									{#if track.lyrics === 'missing'}
-										<button
-											type="button"
-											onclick={() => quickFix(track.id, { lyrics: 'plain_txt' })}
-											class="rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-700/80 px-2 py-1 text-xs font-semibold text-sky-300 transition active:scale-95"
-											title="Mark as plain text lyrics"
-										>
-											+ Plain
-										</button>
-									{/if}
-								{/if}
-
-								<a
-									href="/album/{track.album_id}"
-									class="rounded-lg bg-neutral-800 p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-700"
-									title="View in Album"
+							<!-- Verify button -->
+							{#if track.manually_checked !== 1}
+								<button
+									type="button"
+									onclick={() => quickFix(track.id, { manually_checked: 1 })}
+									class="rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition active:scale-95"
+									title="Mark as manually checked & verified"
 								>
-									<ArrowRight class="h-3.5 w-3.5" />
-								</a>
-							</div>
+									✓ Verify
+								</button>
+							{/if}
+
+							{#if track.notes}
+								<span class="text-[11px] italic text-neutral-500 truncate max-w-xs">
+									"{track.notes}"
+								</span>
+							{/if}
 						</div>
 					</div>
 				{/each}

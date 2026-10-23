@@ -41,26 +41,26 @@
 		<!-- Health Badge on Top Right -->
 		<div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
 			{#if album.checked_count !== undefined && (album.track_count || 0) > 0 && album.checked_count === album.track_count}
-				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-900/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-200 border border-emerald-500/80 backdrop-blur-md shadow-sm" title="All {album.track_count} tracks manually verified">
+				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-900/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-200 border border-emerald-500/80 backdrop-blur-md shadow-sm whitespace-nowrap">
 					<CheckCircle2 class="h-3 w-3 text-emerald-300" />
 					Verified
 				</span>
 			{:else if !hasIssues && (album.track_count || 0) > 0}
-				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/60 backdrop-blur-md shadow-sm">
+				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/60 backdrop-blur-md shadow-sm whitespace-nowrap">
 					<CheckCircle2 class="h-3 w-3" />
-					Vault Ready
+					Ready
 				</span>
 			{:else if hasIssues}
-				<span class="inline-flex items-center gap-1 rounded-full bg-amber-950/90 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-600/60 backdrop-blur-md shadow-sm">
+				<span class="inline-flex items-center gap-1 rounded-full bg-amber-950/90 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-600/60 backdrop-blur-md shadow-sm whitespace-nowrap">
 					<AlertTriangle class="h-3 w-3" />
-					Needs Attention
+					Needs Fix
 				</span>
 			{/if}
 		</div>
 
 		{#if album.media_type}
 			<div class="absolute bottom-2 left-2">
-				<span class="rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-300 backdrop-blur-sm">
+				<span class="rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-300 backdrop-blur-sm whitespace-nowrap">
 					{album.media_type}
 				</span>
 			</div>
@@ -78,24 +78,24 @@
 			</p>
 		</div>
 
-		<div class="mt-3 flex items-center justify-between border-t border-neutral-800/60 pt-2.5 text-xs text-neutral-500">
-			<span>{album.release_year || 'Unknown Year'}</span>
-			<span class="flex items-center gap-1.5">
+		<div class="mt-3 flex items-center justify-between border-t border-neutral-800/60 pt-2 text-xs text-neutral-500">
+			<span class="whitespace-nowrap">{album.release_year || '—'}</span>
+			<div class="flex items-center gap-2 whitespace-nowrap">
 				{#if album.checked_count !== undefined && (album.track_count || 0) > 0}
-					<span class="{album.checked_count === album.track_count ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}" title="{album.checked_count} of {album.track_count} tracks manually checked">
-						{album.checked_count}/{album.track_count} checked
+					<span class="whitespace-nowrap font-medium {album.checked_count === album.track_count ? 'text-emerald-400' : 'text-neutral-400'}">
+						{album.checked_count}/{album.track_count}&nbsp;checked
 					</span>
-					<span>•</span>
+				{:else}
+					<span class="whitespace-nowrap">{album.track_count || 0}&nbsp;tracks</span>
 				{/if}
-				<span>{album.track_count || 0} tracks</span>
-			</span>
+			</div>
 		</div>
 
 		<!-- Matching Tracks Badge when specific track search is active -->
 		{#if album.matched_tracks_count !== undefined}
-			<div class="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-950/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 border border-emerald-700/60 shadow-sm">
+			<div class="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-950/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 border border-emerald-700/60 shadow-sm whitespace-nowrap">
 				<Music class="h-3 w-3 text-emerald-400" />
-				<span>{album.matched_tracks_count} matching {album.matched_tracks_count === 1 ? 'file' : 'files'}</span>
+				<span>{album.matched_tracks_count}&nbsp;matched</span>
 			</div>
 		{/if}
 
@@ -103,18 +103,18 @@
 		{#if hasIssues}
 			<div class="mt-2 flex flex-wrap gap-1.5 pt-1">
 				{#if (album.bad_quality_count || 0) > 0}
-					<span class="rounded bg-rose-950/70 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 border border-rose-800/50">
-						{album.bad_quality_count} bad quality
+					<span class="rounded bg-rose-950/70 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 border border-rose-800/50 whitespace-nowrap">
+						{album.bad_quality_count}&nbsp;bad
 					</span>
 				{/if}
 				{#if (album.censored_count || 0) > 0}
-					<span class="rounded bg-rose-950/70 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 border border-rose-800/50">
-						{album.censored_count} censored
+					<span class="rounded bg-rose-950/70 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 border border-rose-800/50 whitespace-nowrap">
+						{album.censored_count}&nbsp;censored
 					</span>
 				{/if}
 				{#if (album.missing_lyrics_count || 0) > 0}
-					<span class="rounded bg-amber-950/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 border border-amber-800/50">
-						{album.missing_lyrics_count} no lyrics
+					<span class="rounded bg-amber-950/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 border border-amber-800/50 whitespace-nowrap">
+						{album.missing_lyrics_count}&nbsp;no lyrics
 					</span>
 				{/if}
 			</div>
