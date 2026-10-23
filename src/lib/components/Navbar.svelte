@@ -11,9 +11,7 @@
 		Settings as SettingsIcon,
 		Tag,
 		ExternalLink,
-		Mic,
-		Wrench,
-		ChevronDown
+		Mic
 	} from '@lucide/svelte';
 
 	interface Props {
@@ -30,7 +28,6 @@
 		picardUrl = 'http://localhost:5800'
 	}: Props = $props();
 
-	let showToolsDropdown = $state(false);
 	const currentPath = $derived(page.url.pathname);
 
 	async function handleLogout() {
@@ -71,6 +68,14 @@
 				</a>
 
 				<a
+					href="/player"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/player') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+				>
+					<Disc3 class="h-4 w-4 text-emerald-400" />
+					<span>Player</span>
+				</a>
+
+				<a
 					href="/issues"
 					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/issues') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 				>
@@ -84,6 +89,14 @@
 				</a>
 
 				<a
+					href="/lrc-maker"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+				>
+					<Mic class="h-4 w-4" />
+					<span>LRC Maker</span>
+				</a>
+
+				<a
 					href="/scan"
 					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/scan') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 				>
@@ -91,61 +104,17 @@
 					<span>Scan</span>
 				</a>
 
-				<!-- Tools Dropdown (LRC Maker Studio & Picard Tagger) -->
-				<div class="relative">
-					<button
-						type="button"
-						onclick={() => (showToolsDropdown = !showToolsDropdown)}
-						class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition cursor-pointer {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
-					>
-						<Wrench class="h-4 w-4" />
-						<span>Tools</span>
-						<ChevronDown class="h-3 w-3 text-neutral-500 transition-transform {showToolsDropdown ? 'rotate-180' : ''}" />
-					</button>
-
-					{#if showToolsDropdown}
-						<!-- Click backdrop -->
-						<div
-							class="fixed inset-0 z-40"
-							onclick={() => (showToolsDropdown = false)}
-						></div>
-
-						<div class="absolute left-0 top-full mt-2 z-50 w-60 rounded-2xl border border-neutral-800 bg-neutral-900 p-2 shadow-2xl space-y-1 animate-in fade-in zoom-in-95 duration-100">
-							<a
-								href="/lrc-maker"
-								onclick={() => (showToolsDropdown = false)}
-								class="flex items-center gap-3 rounded-xl p-2.5 text-xs transition {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-500/15 text-emerald-300' : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'}"
-							>
-								<div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
-									<Mic class="h-4 w-4" />
-								</div>
-								<div>
-									<div class="font-bold text-white">LRC Maker Studio</div>
-									<div class="text-[11px] text-neutral-400">Interactive sync & folder lyrics</div>
-								</div>
-							</a>
-
-							<a
-								href={picardUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								onclick={() => (showToolsDropdown = false)}
-								class="flex items-center justify-between rounded-xl p-2.5 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition"
-							>
-								<div class="flex items-center gap-3">
-									<div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 shrink-0">
-										<Tag class="h-4 w-4" />
-									</div>
-									<div>
-										<div class="font-bold text-white">Picard Tagger</div>
-										<div class="text-[11px] text-neutral-400">Acoustic Web GUI ({picardUrl})</div>
-									</div>
-								</div>
-								<ExternalLink class="h-3.5 w-3.5 text-neutral-500 mr-1 shrink-0" />
-							</a>
-						</div>
-					{/if}
-				</div>
+				<a
+					href={picardUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200 transition"
+					title="Open MusicBrainz Picard Web GUI ({picardUrl})"
+				>
+					<Tag class="h-3.5 w-3.5 text-indigo-400" />
+					<span>Picard</span>
+					<ExternalLink class="h-3 w-3 text-neutral-500" />
+				</a>
 			</nav>
 		</div>
 
@@ -183,14 +152,22 @@
 		</div>
 	</div>
 
-	<!-- Mobile Navigation Bottom Bar (Clean 5-tab bar) -->
-	<div class="grid grid-cols-5 md:hidden border-t border-neutral-800/80 px-2 py-2 bg-neutral-950 text-center">
+	<!-- Mobile Navigation Bottom Bar (Clean 6-tab bar) -->
+	<div class="grid grid-cols-6 md:hidden border-t border-neutral-800/80 px-1 py-2 bg-neutral-950 text-center">
 		<a
 			href="/"
 			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath === '/' ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
 		>
 			<Library class="h-4 w-4" />
 			<span>Vault</span>
+		</a>
+
+		<a
+			href="/player"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/player') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
+		>
+			<Disc3 class="h-4 w-4 {currentPath.startsWith('/player') ? 'text-emerald-400 animate-spin-slow' : ''}" />
+			<span>Player</span>
 		</a>
 
 		<a
@@ -209,19 +186,19 @@
 		</a>
 
 		<a
-			href="/scan"
-			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/scan') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
-		>
-			<FolderSync class="h-4 w-4" />
-			<span>Scan</span>
-		</a>
-
-		<a
 			href="/lrc-maker"
 			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/lrc-maker') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
 		>
 			<Mic class="h-4 w-4" />
 			<span>LRC</span>
+		</a>
+
+		<a
+			href="/scan"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/scan') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
+		>
+			<FolderSync class="h-4 w-4" />
+			<span>Scan</span>
 		</a>
 
 		<a

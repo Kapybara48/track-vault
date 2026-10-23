@@ -1287,18 +1287,47 @@
 								</button>
 
 								<!-- Custom Shift Input -->
-								<div class="flex items-center ml-1 border border-neutral-700 rounded-md overflow-hidden bg-neutral-900">
-									<input
-										type="number"
-										step="0.1"
-										bind:value={customShiftAmount}
-										class="w-12 bg-transparent px-1.5 py-0.5 text-[11px] text-white font-mono focus:outline-none"
-										title="Custom offset in seconds"
-									/>
+								<div class="flex items-center ml-1 border border-neutral-700 rounded-lg overflow-hidden bg-neutral-950 shadow-inner">
+									<button
+										type="button"
+										onclick={() => {
+											const cur = parseFloat(customShiftAmount) || 0;
+											customShiftAmount = (Math.round((cur - 0.1) * 10) / 10).toFixed(1);
+										}}
+										class="px-2 py-1 text-neutral-400 hover:text-white hover:bg-neutral-800 text-xs font-mono transition cursor-pointer select-none"
+										title="Decrease by 0.1s"
+									>
+										-
+									</button>
+
+									<div class="relative flex items-center">
+										<input
+											type="text"
+											inputmode="decimal"
+											bind:value={customShiftAmount}
+											class="w-16 bg-transparent px-1 py-1 text-xs text-white text-center font-mono focus:outline-none"
+											placeholder="1.0"
+											title="Custom offset in seconds (e.g. 1.2 or -0.8)"
+										/>
+										<span class="text-[10px] text-neutral-400 pr-1.5 select-none font-mono">s</span>
+									</div>
+
+									<button
+										type="button"
+										onclick={() => {
+											const cur = parseFloat(customShiftAmount) || 0;
+											customShiftAmount = (Math.round((cur + 0.1) * 10) / 10).toFixed(1);
+										}}
+										class="px-2 py-1 text-neutral-400 hover:text-white hover:bg-neutral-800 text-xs font-mono transition cursor-pointer select-none"
+										title="Increase by 0.1s"
+									>
+										+
+									</button>
+
 									<button
 										type="button"
 										onclick={applyCustomShift}
-										class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition cursor-pointer"
+										class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition cursor-pointer border-l border-neutral-700"
 									>
 										Shift
 									</button>

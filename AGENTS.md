@@ -91,6 +91,15 @@ This document preserves persistent context, architectural conventions, recent ch
     - Added instrumental mode toggle & format selector (`♪ Musical Note` vs `Tag`) to LRC Maker header, LRCLIB modal, and Synchronizer mode.
     - Added multi-line selection (individual checkboxes, Shift+Click range select, select all, clear) and batch time shifting toolbar (`±1.0s`, `±0.5s`, `±0.1s`, custom seconds input, and bulk clear timestamps).
     - Added "Mark Instrumental" 1-click shortcut button in Album detail Quick Lyrics File Editor Modal.
+16. **Spotify-Inspired Music Player Tab, Split Navbar, & LRC Input Fix**:
+    - Split navbar tools into direct top-level links: `Vault`, `Player`, `Fixer`, `LRC Maker`, `Scan`, and `Picard`. Updated mobile bottom navigation to a clean 6-tab layout.
+    - Fixed LRC Maker custom time shift input: expanded input width, eliminated native browser arrow spinners blocking the number, and added dedicated increment/decrement steppers with `±sec` formatting.
+    - Added full-featured Spotify clone music player at `/player` (`src/routes/player/+page.svelte` & `+page.server.ts`):
+      - 3-pane layout with 'Your Library' album search and filter chips (All, Verified, Lossless).
+      - Spotify album hero with large artwork, metadata, and big green play button.
+      - Full interactive tracklist table with active song equalizer animations and direct audio streaming (`/api/tracks/[id]/audio`).
+      - Spotify Synced Lyrics drawer with real-time scrolling karaoke playback, instrumental track indicators, and timestamp click-to-seek.
+      - Persistent bottom Spotify player bar with playback controls, shuffle, repeat (all/one), scrubber progress slider, volume controls, keyboard shortcuts, and MediaSession integration.
 
 ---
 
