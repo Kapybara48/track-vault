@@ -67,12 +67,30 @@ db.exec(`
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT UNIQUE NOT NULL,
+		password_hash TEXT NOT NULL,
+		salt TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'admin',
+		created_at TEXT NOT NULL DEFAULT (datetime('now')),
+		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+	);
+
+	CREATE TABLE IF NOT EXISTS sessions (
+		id TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		expires_at TEXT NOT NULL,
+		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 	CREATE INDEX IF NOT EXISTS idx_tracks_format ON tracks(format);
 	CREATE INDEX IF NOT EXISTS idx_tracks_censorship ON tracks(censorship);
 	CREATE INDEX IF NOT EXISTS idx_tracks_lyrics ON tracks(lyrics);
 	CREATE INDEX IF NOT EXISTS idx_tracks_needs_attention ON tracks(needs_attention);
 	CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist);
+	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 `);
 
 // Idempotent column migrations for existing databases

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Disc3, TriangleAlert, Plus, Music, Library, Sparkles, FolderSync } from '@lucide/svelte';
+	import { Disc3, TriangleAlert, Plus, Music, Library, Sparkles, FolderSync, LogOut, User as UserIcon } from '@lucide/svelte';
 
 	interface Props {
 		issuesCount?: number;
+		user?: { id: number; username: string; role: string } | null;
+		authDisabled?: boolean;
 	}
 
-	let { issuesCount = 0 }: Props = $props();
+	let { issuesCount = 0, user = null, authDisabled = false }: Props = $props();
 
 	const currentPath = $derived(page.url.pathname);
 </script>
@@ -58,15 +60,37 @@
 			</nav>
 		</div>
 
-		<!-- Action Buttons -->
-		<div class="flex items-center gap-3">
+		<!-- Action Buttons & User Menu -->
+		<div class="flex items-center gap-2 sm:gap-3">
 			<a
 				href="/add"
-				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-500 active:scale-95"
+				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-500 active:scale-95"
 			>
 				<Plus class="h-4 w-4" />
 				<span>Add Album</span>
 			</a>
+
+			{#if user && !authDisabled}
+				<div class="flex items-center gap-2 pl-2 border-l border-neutral-800">
+					<span
+						class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5"
+						title="Logged in as {user.username}"
+					>
+						<UserIcon class="h-3.5 w-3.5 text-emerald-400" />
+						<span class="truncate max-w-[100px]">{user.username}</span>
+					</span>
+
+					<form method="POST" action="/api/auth/logout">
+						<button
+							type="submit"
+							class="rounded-xl p-2 text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 border border-transparent hover:border-neutral-800 transition cursor-pointer"
+							title="Sign Out"
+						>
+							<LogOut class="h-4 w-4" />
+						</button>
+					</form>
+				</div>
+			{/if}
 		</div>
 	</div>
 

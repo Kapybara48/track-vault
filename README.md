@@ -40,7 +40,7 @@ The easiest way to run Track Vault on your server is with Docker Compose.
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/danielkrejci/track-vault.git
+git clone https://github.com/Kapybara48/track-vault.git
 cd track-vault
 ```
 
@@ -61,6 +61,8 @@ services:
       - DATA_DIR=/app/data
       - MUSIC_DIR=/music
       - ORIGIN=http://localhost:3000
+      # Optional: set to true if you want to bypass login on a local network
+      # - AUTH_DISABLED=false
     volumes:
       # Persistent SQLite database & album covers
       - ./data:/app/data
@@ -72,11 +74,13 @@ services:
 
 ### 3. Start Container
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Access Track Vault in your browser at:
 `http://localhost:3000` (or `http://your-server-ip:3000`)
+
+On your first visit, Track Vault will greet you with a **First-Run Admin Setup** screen to create your admin credentials. After setup, standard login is enforced unless `AUTH_DISABLED=true` is set in your environment.
 
 ---
 
