@@ -28,7 +28,10 @@
 		Edit3,
 		Volume2,
 		FolderCheck,
-		LocateFixed
+		LocateFixed,
+		CheckSquare,
+		Square,
+		Sliders
 	} from '@lucide/svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -58,6 +61,16 @@
 	let autoFollowEnabled = $state(true);
 	let companionFilePath = $state<string | null>(data.companionPath || null);
 	let isReloadingFromDisk = $state(false);
+
+	// Instrumental State
+	let isInstrumental = $state(false);
+	let instrumentalFormat = $state<'note' | 'tag'>('note');
+	let showInstrumentalMenu = $state(false);
+
+	// Multi-Line Selection State for Batch Shifting
+	let selectedLineIndices = $state<number[]>([]);
+	let lastClickedIndex = $state<number | null>(null);
+	let customShiftAmount = $state<string>('1.0');
 
 	// Track Info State (can be edited if standalone)
 	let trackTitle = $state(data.track?.title || '');
@@ -161,8 +174,14 @@
 		if (trackArtist) header.push(`[ar:${trackArtist}]`);
 		if (albumTitle) header.push(`[al:${albumTitle}]`);
 		if (duration > 0) header.push(`[length:${formatDurationShort(duration)}]`);
+		if (isInstrumental) header.push('[au:Instrumental]');
 		header.push('[by:Track Vault]');
 		header.push('');
+
+		if (isInstrumental) {
+			const marker = instrumentalFormat === 'note' ? '♪' : '[instrumental]';
+			return [...header, `[00:00.00]${marker}`].join('\n');
+		}
 
 		const body = lyricLines.map((l) => {
 			if (l.time !== null) {
@@ -187,6 +206,18 @@
 		if (data.existingLyrics && data.existingLyrics.trim()) {
 			rawLyricsText = data.existingLyrics;
 			lyricLines = parseLyrics(data.existingLyrics);
+			if (
+				data.track?.lyrics === 'instrumental' ||
+				/\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*(♪|♫|\[instrumental\]|\(instrumental\)|instrumental)/i.test(data.existingLyrics) ||
+				/\[au:\s*instrumental\]/i.test(data.existingLyrics)
+			) {
+				isInstrumental = true;
+				instrumentalFormat = data.existingLyrics.includes('[instrumental]') ? 'tag' : 'note';
+			}
+		} else if (data.track?.lyrics === 'instrumental') {
+			isInstrumental = true;
+			rawLyricsText = '[00:00.00]♪';
+			lyricLines = [{ id: 'inst-1', time: 0, text: '♪' }];
 		} else {
 			rawLyricsText = '';
 			lyricLines = [
@@ -195,6 +226,104 @@
 			];
 		}
 	});
+
+	// Instrumental Actions
+	function setAsInstrumental(format: 'note' | 'tag' = 'note') {
+		isInstrumental = true;
+		instrumentalFormat = format;
+		const marker = format === 'note' ? '♪' : '[instrumental]';
+		lyricLines = [{ id: 'inst-1', time: 0, text: marker }];
+		activeLineIndex = 0;
+		selectedLineIndices = [];
+		showInstrumentalMenu = false;
+		rawLyricsText = generateLrcContent();
+		saveStatus = {
+			type: 'info',
+			message: `Marked as Instrumental track (${marker}). Click "Save to Track Vault" to write companion file.`
+		};
+	}
+
+	function revertFromInstrumental() {
+		isInstrumental = false;
+		showInstrumentalMenu = false;
+		if (lyricLines.length === 1 && (lyricLines[0].text === '♪' || lyricLines[0].text === '[instrumental]')) {
+			lyricLines = [
+				{ id: '1', time: null, text: 'First line of lyrics' },
+				{ id: '2', time: null, text: 'Second line of lyrics' }
+			];
+			rawLyricsText = '';
+		}
+		saveStatus = {
+			type: 'info',
+			message: 'Reverted to standard vocal lyrics mode.'
+		};
+	}
+
+	// Multi-Line Selection and Batch Shift Actions
+	function toggleLineSelection(index: number, event?: MouseEvent) {
+		if (event && event.shiftKey && lastClickedIndex !== null) {
+			const start = Math.min(lastClickedIndex, index);
+			const end = Math.max(lastClickedIndex, index);
+			const rangeIndices: number[] = [];
+			for (let i = start; i <= end; i++) {
+				rangeIndices.push(i);
+			}
+			const set = new Set([...selectedLineIndices, ...rangeIndices]);
+			selectedLineIndices = Array.from(set).sort((a, b) => a - b);
+		} else {
+			if (selectedLineIndices.includes(index)) {
+				selectedLineIndices = selectedLineIndices.filter((i) => i !== index);
+			} else {
+				selectedLineIndices = [...selectedLineIndices, index].sort((a, b) => a - b);
+			}
+			lastClickedIndex = index;
+		}
+	}
+
+	function selectAllLines() {
+		selectedLineIndices = lyricLines.map((_, i) => i);
+	}
+
+	function clearSelection() {
+		selectedLineIndices = [];
+		lastClickedIndex = null;
+	}
+
+	function shiftSelectedLines(deltaSeconds: number) {
+		if (selectedLineIndices.length === 0) return;
+		let shiftedCount = 0;
+		for (const idx of selectedLineIndices) {
+			const line = lyricLines[idx];
+			if (line && line.time !== null) {
+				line.time = Math.max(0, Math.round((line.time + deltaSeconds) * 100) / 100);
+				shiftedCount++;
+			}
+		}
+		saveStatus = {
+			type: 'success',
+			message: `Shifted timestamps for ${shiftedCount} line(s) by ${deltaSeconds > 0 ? '+' : ''}${deltaSeconds}s`
+		};
+	}
+
+	function applyCustomShift() {
+		const val = parseFloat(customShiftAmount);
+		if (isNaN(val) || val === 0) return;
+		shiftSelectedLines(val);
+	}
+
+	function removeSelectedTimestamps() {
+		if (selectedLineIndices.length === 0) return;
+		for (const idx of selectedLineIndices) {
+			const line = lyricLines[idx];
+			if (line) {
+				line.time = null;
+			}
+		}
+		saveStatus = {
+			type: 'info',
+			message: `Cleared timestamps for ${selectedLineIndices.length} line(s)`
+		};
+	}
 
 	// Audio Player Controls
 	function togglePlay() {
@@ -483,17 +612,22 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					lyrics_text: content,
-					status: 'synced_lrc',
+					status: isInstrumental ? 'instrumental' : 'synced_lrc',
 					save_to_disk: true
 				})
 			});
 
 			const json = await res.json();
 			if (json.success) {
+				if (json.companion_path) {
+					companionFilePath = json.companion_path;
+				}
 				if (json.saved_to_disk) {
 					saveStatus = {
 						type: 'success',
-						message: 'Saved to Track Vault database and companion .lrc file written to server!'
+						message: isInstrumental
+							? 'Saved as Instrumental track to database & companion .lrc file written to disk!'
+							: 'Saved to Track Vault database and companion .lrc file written to server!'
 					};
 				} else if (json.disk_error) {
 					saveStatus = {
@@ -503,7 +637,9 @@
 				} else {
 					saveStatus = {
 						type: 'success',
-						message: 'Saved to Track Vault database! Lyrics status updated to Synced LRC.'
+						message: isInstrumental
+							? 'Saved to Track Vault database! Lyrics status updated to Instrumental.'
+							: 'Saved to Track Vault database! Lyrics status updated to Synced LRC.'
 					};
 				}
 			} else {
@@ -606,6 +742,74 @@
 
 			<!-- Quick Actions: LRCLIB & Save -->
 			<div class="flex items-center gap-2">
+				<!-- Instrumental Mode Toggle & Options -->
+				<div class="relative">
+					{#if isInstrumental}
+						<button
+							type="button"
+							onclick={() => (showInstrumentalMenu = !showInstrumentalMenu)}
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/25 border border-purple-500/40 text-purple-300 hover:bg-purple-600/35 transition text-xs font-semibold cursor-pointer shadow-sm shadow-purple-950/40"
+							title="Instrumental track mode active"
+						>
+							<span class="text-sm leading-none font-serif">♪</span>
+							<span>Instrumental: {instrumentalFormat === 'note' ? '♪' : 'tag'}</span>
+							<ChevronDown class="w-3 h-3 text-purple-400" />
+						</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => (showInstrumentalMenu = !showInstrumentalMenu)}
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 transition text-xs font-medium cursor-pointer"
+							title="Mark track as instrumental (generates [00:00.00]♪ or [00:00.00][instrumental])"
+						>
+							<span class="text-sm leading-none font-serif">♪</span>
+							<span>Instrumental</span>
+							<ChevronDown class="w-3 h-3 text-neutral-400" />
+						</button>
+					{/if}
+
+					{#if showInstrumentalMenu}
+						<div
+							class="absolute right-0 mt-1.5 w-60 rounded-xl bg-neutral-900 border border-neutral-700 shadow-2xl p-2 z-50 space-y-1 animate-in fade-in duration-150"
+						>
+							<div class="px-2 py-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider border-b border-neutral-800">
+								Instrumental Marker Format
+							</div>
+							<button
+								type="button"
+								onclick={() => setAsInstrumental('note')}
+								class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-800 flex items-center justify-between transition cursor-pointer {instrumentalFormat === 'note' && isInstrumental ? 'bg-purple-950/60 text-purple-300 font-semibold' : 'text-neutral-300'}"
+							>
+								<span>♪ Musical Note ([00:00.00]♪)</span>
+								{#if instrumentalFormat === 'note' && isInstrumental}
+									<Check class="w-3.5 h-3.5 text-purple-400" />
+								{/if}
+							</button>
+							<button
+								type="button"
+								onclick={() => setAsInstrumental('tag')}
+								class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-800 flex items-center justify-between transition cursor-pointer {instrumentalFormat === 'tag' && isInstrumental ? 'bg-purple-950/60 text-purple-300 font-semibold' : 'text-neutral-300'}"
+							>
+								<span>Tag ([00:00.00][instrumental])</span>
+								{#if instrumentalFormat === 'tag' && isInstrumental}
+									<Check class="w-3.5 h-3.5 text-purple-400" />
+								{/if}
+							</button>
+							{#if isInstrumental}
+								<div class="border-t border-neutral-800 pt-1 mt-1">
+									<button
+										type="button"
+										onclick={revertFromInstrumental}
+										class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-rose-950/40 text-rose-300 transition cursor-pointer"
+									>
+										Revert to vocal lyrics
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
 				<button
 					type="button"
 					onclick={fetchFromLrcLib}
@@ -980,6 +1184,139 @@
 						</div>
 					</div>
 
+					<!-- Instrumental Mode Banner in Synchronizer -->
+					{#if isInstrumental}
+						<div class="bg-purple-950/40 border-b border-purple-800/50 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-purple-300">
+							<div class="flex items-center gap-2">
+								<span class="text-base font-serif text-purple-400">♪</span>
+								<span><strong>Instrumental Track:</strong> Saved with marker <code class="px-1.5 py-0.5 rounded bg-neutral-950 border border-purple-700/50 font-mono text-[11px]">{instrumentalFormat === 'note' ? '[00:00.00]♪' : '[00:00.00][instrumental]'}</code></span>
+							</div>
+							<div class="flex items-center gap-2">
+								<button
+									type="button"
+									onclick={() => setAsInstrumental(instrumentalFormat === 'note' ? 'tag' : 'note')}
+									class="px-2 py-1 rounded bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-700/60 text-xs transition cursor-pointer"
+								>
+									Switch to {instrumentalFormat === 'note' ? '[instrumental]' : '♪'}
+								</button>
+								<button
+									type="button"
+									onclick={revertFromInstrumental}
+									class="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 text-xs transition cursor-pointer"
+								>
+									Revert to Vocal
+								</button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Multi-Line Batch Operations Toolbar -->
+					{#if selectedLineIndices.length > 0}
+						<div class="bg-indigo-950/70 border-b border-indigo-800/60 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in duration-150">
+							<div class="flex items-center gap-2">
+								<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-semibold text-[11px]">
+									<CheckSquare class="w-3.5 h-3.5" />
+									{selectedLineIndices.length} {selectedLineIndices.length === 1 ? 'line' : 'lines'} selected
+								</span>
+								<button
+									type="button"
+									onclick={selectAllLines}
+									class="text-neutral-400 hover:text-white underline text-[11px] cursor-pointer"
+								>
+									Select All
+								</button>
+								<button
+									type="button"
+									onclick={clearSelection}
+									class="text-neutral-400 hover:text-white underline text-[11px] cursor-pointer"
+								>
+									Clear
+								</button>
+							</div>
+
+							<!-- Shift Controls -->
+							<div class="flex flex-wrap items-center gap-1">
+								<span class="text-neutral-400 text-[11px] mr-1 hidden sm:inline">Shift:</span>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(-1.0)}
+									class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines earlier by 1.0s (-1.0s)"
+								>
+									-1.0s
+								</button>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(1.0)}
+									class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines later by 1.0s (+1.0s)"
+								>
+									+1.0s
+								</button>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(-0.5)}
+									class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines earlier by 0.5s (-0.5s)"
+								>
+									-0.5s
+								</button>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(0.5)}
+									class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines later by 0.5s (+0.5s)"
+								>
+									+0.5s
+								</button>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(-0.1)}
+									class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines earlier by 0.1s (-0.1s)"
+								>
+									-0.1s
+								</button>
+								<button
+									type="button"
+									onclick={() => shiftSelectedLines(0.1)}
+									class="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-mono text-[11px] border border-neutral-700 transition cursor-pointer"
+									title="Shift selected lines later by 0.1s (+0.1s)"
+								>
+									+0.1s
+								</button>
+
+								<!-- Custom Shift Input -->
+								<div class="flex items-center ml-1 border border-neutral-700 rounded-md overflow-hidden bg-neutral-900">
+									<input
+										type="number"
+										step="0.1"
+										bind:value={customShiftAmount}
+										class="w-12 bg-transparent px-1.5 py-0.5 text-[11px] text-white font-mono focus:outline-none"
+										title="Custom offset in seconds"
+									/>
+									<button
+										type="button"
+										onclick={applyCustomShift}
+										class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition cursor-pointer"
+									>
+										Shift
+									</button>
+								</div>
+
+								<!-- Clear Timestamps on selected lines -->
+								<button
+									type="button"
+									onclick={removeSelectedTimestamps}
+									class="ml-1 p-1 rounded text-neutral-400 hover:text-rose-400 transition cursor-pointer"
+									title="Clear timestamps for all selected lines"
+								>
+									<Trash2 class="w-3.5 h-3.5" />
+								</button>
+							</div>
+						</div>
+					{/if}
+
 					<!-- Scrollable Lines Canvas -->
 					<div
 						bind:this={linesContainerEl}
@@ -988,9 +1325,12 @@
 						{#each lyricLines as line, i}
 							{@const isCurrentPlaying = currentPlaybackLineIndex === i}
 							{@const isSyncTarget = i === activeLineIndex}
+							{@const isSelected = selectedLineIndices.includes(i)}
 							<div
 								id={`line-${i}`}
-								class="flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 {isCurrentPlaying
+								class="flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 {isSelected
+									? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/30'
+									: isCurrentPlaying
 									? 'bg-emerald-950/70 border-emerald-500/80 ring-2 ring-emerald-500/40 shadow-lg scale-[1.01]'
 									: isSyncTarget
 									? 'bg-neutral-900 border-indigo-500/50 ring-1 ring-indigo-500/30'
@@ -998,6 +1338,20 @@
 									? 'bg-neutral-950/60 border-neutral-800/80 hover:border-neutral-700'
 									: 'bg-neutral-950/30 border-neutral-850 opacity-80'}"
 							>
+								<!-- Line Selection Checkbox -->
+								<button
+									type="button"
+									onclick={(e) => toggleLineSelection(i, e)}
+									class="p-1 rounded text-neutral-500 hover:text-indigo-400 transition shrink-0 cursor-pointer"
+									title="Select line for batch time shifting (Shift+Click to select range)"
+								>
+									{#if isSelected}
+										<CheckSquare class="w-4 h-4 text-indigo-400" />
+									{:else}
+										<Square class="w-4 h-4 text-neutral-600 hover:text-neutral-400" />
+									{/if}
+								</button>
+
 								<!-- Line Index / Arrow / Active Playing Indicator -->
 								<div class="w-6 text-center text-[11px] font-mono shrink-0 flex items-center justify-center">
 									{#if isCurrentPlaying}
@@ -1091,27 +1445,53 @@
 			<!-- MODE 3: KARAOKE LIVE PREVIEW -->
 			{:else if currentMode === 'preview'}
 				<div class="bg-neutral-900 rounded-xl border border-neutral-800 flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[460px] overflow-hidden relative">
-					<div class="max-w-2xl w-full space-y-6">
-						{#each lyricLines as line, i}
-							{#if Math.abs(i - currentPlaybackLineIndex) <= 2}
-								<div
-									class="transition-all duration-300 transform {i === currentPlaybackLineIndex
-										? 'text-2xl md:text-3xl font-extrabold text-emerald-400 scale-105 py-2'
-										: i < currentPlaybackLineIndex
-										? 'text-sm md:text-base text-neutral-500'
-										: 'text-sm md:text-base text-neutral-400'}"
+					{#if isInstrumental}
+						<div class="max-w-md w-full p-8 rounded-3xl bg-neutral-950/80 border border-purple-500/30 shadow-2xl space-y-4 text-center">
+							<div class="w-16 h-16 mx-auto rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-3xl font-serif shadow-lg shadow-purple-950/50">
+								♪
+							</div>
+							<div>
+								<h3 class="text-xl font-bold text-white flex items-center justify-center gap-2">
+									<span>Instrumental Track</span>
+								</h3>
+								<p class="text-xs text-purple-300/80 mt-1">This song contains no vocal lyrics</p>
+							</div>
+							<div class="text-[11px] font-mono text-neutral-400 bg-neutral-900 p-2.5 rounded-xl border border-neutral-800">
+								<code>[00:00.00]{instrumentalFormat === 'note' ? '♪' : '[instrumental]'}</code>
+							</div>
+							<div class="pt-2">
+								<button
+									type="button"
+									onclick={revertFromInstrumental}
+									class="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs transition cursor-pointer"
 								>
-									{line.text}
+									Switch to vocal lyrics
+								</button>
+							</div>
+						</div>
+					{:else}
+						<div class="max-w-2xl w-full space-y-6">
+							{#each lyricLines as line, i}
+								{#if Math.abs(i - currentPlaybackLineIndex) <= 2}
+									<div
+										class="transition-all duration-300 transform {i === currentPlaybackLineIndex
+											? 'text-2xl md:text-3xl font-extrabold text-emerald-400 scale-105 py-2'
+											: i < currentPlaybackLineIndex
+											? 'text-sm md:text-base text-neutral-500'
+											: 'text-sm md:text-base text-neutral-400'}"
+									>
+										{line.text}
+									</div>
+								{/if}
+							{/each}
+
+							{#if currentPlaybackLineIndex === -1}
+								<div class="text-neutral-500 italic text-sm">
+									Press Play to start karaoke preview...
 								</div>
 							{/if}
-						{/each}
-
-						{#if currentPlaybackLineIndex === -1}
-							<div class="text-neutral-500 italic text-sm">
-								Press Play to start karaoke preview...
-							</div>
-						{/if}
-					</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -1140,6 +1520,28 @@
 				<p>
 					Found lyrics for: <strong class="text-white">{lrcLibResult.artistName} - {lrcLibResult.trackName}</strong>
 				</p>
+
+				{#if lrcLibResult.instrumental}
+					<div class="p-3 rounded-xl border border-purple-500/40 bg-purple-950/25 flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2.5">
+							<span class="text-xl font-serif text-purple-400">♪</span>
+							<div>
+								<span class="font-semibold text-purple-300 block text-xs">Flagged as Instrumental on LRCLIB</span>
+								<p class="text-[11px] text-neutral-400">LRCLIB reports this track contains no vocals</p>
+							</div>
+						</div>
+						<button
+							type="button"
+							onclick={() => {
+								setAsInstrumental('note');
+								showLrcLibModal = false;
+							}}
+							class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs transition cursor-pointer"
+						>
+							Apply Instrumental
+						</button>
+					</div>
+				{/if}
 
 				<div class="grid grid-cols-2 gap-2 pt-2">
 					<div class="p-3 rounded-xl border border-neutral-800 bg-neutral-950 flex flex-col justify-between gap-3">

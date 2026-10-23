@@ -3,7 +3,7 @@ import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getTrackById, saveTrackLyrics } from '$lib/server/db.js';
-import { findCompanionLyricsFile, resolveTrackFilePath } from '$lib/server/scanner.js';
+import { findCompanionLyricsFile, resolveTrackFilePath, isInstrumentalLyrics } from '$lib/server/scanner.js';
 import type { LyricsStatus } from '$lib/types/index.js';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -80,11 +80,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 	const lyricsText = typeof body.lyrics_text === 'string' ? body.lyrics_text : '';
 	
-	// Auto-detect status if not specified or verify synced vs plain
+	// Auto-detect status if not specified or verify synced vs plain vs instrumental
 	let status: LyricsStatus = body.status || 'synced_lrc';
 	if (!body.status) {
-		const hasTimestamps = /\[\d{1,2}:\d{2}/.test(lyricsText);
-		status = hasTimestamps ? 'synced_lrc' : 'plain_txt';
+		if (isInstrumentalLyrics(lyricsText)) {
+			status = 'instrumental';
+		} else {
+			const hasTimestamps = /\[\d{1,2}:\d{2}/.test(lyricsText);
+			status = hasTimestamps ? 'synced_lrc' : 'plain_txt';
+		}
 	}
 
 	// 1. Save directly to the song's folder file on disk
@@ -102,7 +106,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			diskPath = existingCompanion.filePath;
 		} else {
 			const base = path.basename(audioPath, path.extname(audioPath));
-			const ext = status === 'synced_lrc' ? '.lrc' : '.txt';
+			const ext = (status === 'synced_lrc' || status === 'instrumental' || /\[\d{1,2}:\d{2}/.test(lyricsText)) ? '.lrc' : '.txt';
 			diskPath = path.join(dir, `${base}${ext}`);
 		}
 

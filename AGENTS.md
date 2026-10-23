@@ -85,6 +85,12 @@ This document preserves persistent context, architectural conventions, recent ch
     - In `src/routes/lrc-maker/+page.svelte`, added reactive `currentPlaybackLineIndex` derived from audio `currentTime` and an auto-scroll effect smoothly centering the active singing line during playback.
     - Added visual active line highlighting (emerald pulsating badge, glowing ring, text elevation) and an `Auto-Follow: ON/OFF` toggle.
     - Redesigned `src/lib/components/Navbar.svelte`: consolidated secondary studio links into a clean `Tools` dropdown (`LRC Maker Studio` + `Picard Tagger`), removed duplicate settings tab on desktop, and streamlined mobile navigation to 5 clean, evenly-spaced tabs (`Vault`, `Fixer`, `Scan`, `LRC`, `Settings`).
+15. **Instrumental Lyrics Option & Multi-Line Batch Time Shifting**:
+    - Added `isInstrumentalLyrics(content)` in `src/lib/server/scanner.ts` detecting `[00:00.00]♪`, `[00:00.00][instrumental]`, `[au:Instrumental]`, etc., and updated `findCompanionLyricsFile()` and `detectLyrics()` to classify companion files as `type: 'instrumental'`.
+    - Updated `POST /api/tracks/[id]/lyrics` to auto-detect instrumental content and ensure `.lrc` extension is retained when writing companion files to disk.
+    - Added instrumental mode toggle & format selector (`♪ Musical Note` vs `Tag`) to LRC Maker header, LRCLIB modal, and Synchronizer mode.
+    - Added multi-line selection (individual checkboxes, Shift+Click range select, select all, clear) and batch time shifting toolbar (`±1.0s`, `±0.5s`, `±0.1s`, custom seconds input, and bulk clear timestamps).
+    - Added "Mark Instrumental" 1-click shortcut button in Album detail Quick Lyrics File Editor Modal.
 
 ---
 

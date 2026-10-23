@@ -1368,6 +1368,18 @@
 				<div class="flex items-center justify-between text-xs text-neutral-400 mb-2 shrink-0">
 					<span>Lyrics content (plain text or synced [mm:ss.xx] timestamps):</span>
 					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							onclick={() => {
+								lyricsModalStatus = 'instrumental';
+								lyricsModalText = '[00:00.00]♪';
+							}}
+							class="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:bg-purple-900/60 text-[11px] font-medium transition cursor-pointer flex items-center gap-1"
+							title="Mark track as instrumental ([00:00.00]♪)"
+						>
+							<span class="font-serif">♪</span>
+							<span>Mark Instrumental</span>
+						</button>
 						<span class="text-[11px] text-neutral-500">Lyrics Status:</span>
 						<select
 							bind:value={lyricsModalStatus}
