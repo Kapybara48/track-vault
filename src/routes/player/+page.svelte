@@ -691,18 +691,18 @@
 								</div>
 							</div>
 						{:else if lyricsLines.length > 0}
-							<div bind:this={lyricsContainerEl} class="space-y-3.5 py-8 px-1">
+							<div bind:this={lyricsContainerEl} class="space-y-2 py-8 px-1">
 								{#each lyricsLines as line, i}
 									{@const isActive = activeLyricLineIndex === i}
 									<button
 										type="button"
 										id={`lyrics-line-${i}`}
 										onclick={() => line.time !== null && player.seekTo(line.time)}
-										class="w-full text-left transition-all duration-200 cursor-pointer rounded-lg px-2 py-1 leading-relaxed {isActive
-											? 'text-[17px] font-bold text-emerald-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.35)] bg-emerald-950/20'
+										class="w-full text-left cursor-pointer rounded-xl px-3 py-2 text-[16px] font-semibold leading-relaxed border transition-colors duration-200 {isActive
+											? 'text-emerald-300 bg-emerald-950/40 border-emerald-500/30 drop-shadow-[0_0_12px_rgba(16,185,129,0.35)]'
 											: i < activeLyricLineIndex
-											? 'text-[15px] font-medium text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/20'
-											: 'text-[15px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800/20'}"
+											? 'text-neutral-500 border-transparent hover:text-neutral-300 hover:bg-neutral-800/30'
+											: 'text-neutral-300 border-transparent hover:text-white hover:bg-neutral-800/30'}"
 									>
 										{line.text}
 									</button>
