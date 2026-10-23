@@ -801,18 +801,27 @@
 												{/each}
 											</select>
 
-											<!-- Lyrics Dropdown -->
-											<select
-												bind:value={track.lyrics}
-												class="rounded-lg border px-2 py-0.5 text-[11px] font-medium {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color}"
-												title="Lyrics status (.lrc file detected, unsynced, or missing)"
-											>
-												{#each LYRICS_OPTIONS as l}
-													<option value={l.value} class="bg-neutral-900 text-neutral-200">
-														{l.label}
-													</option>
-												{/each}
-											</select>
+											<!-- Lyrics Dropdown & Source Badge -->
+											<div class="inline-flex items-center gap-1">
+												<select
+													bind:value={track.lyrics}
+													class="rounded-lg border px-2 py-0.5 text-[11px] font-medium {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color}"
+													title="Lyrics status (.lrc file detected, unsynced, or missing)"
+												>
+													{#each LYRICS_OPTIONS as l}
+														<option value={l.value} class="bg-neutral-900 text-neutral-200">
+															{l.label}
+														</option>
+													{/each}
+												</select>
+												{#if track.has_lrc_file}
+													<span class="text-[10px] text-emerald-400 font-mono bg-emerald-950/50 border border-emerald-800/50 rounded px-1.5 py-0.5" title="Companion .lrc file in album directory">.lrc file</span>
+												{:else if track.has_txt_file}
+													<span class="text-[10px] text-sky-400 font-mono bg-sky-950/50 border border-sky-800/50 rounded px-1.5 py-0.5" title="Companion .txt file in album directory">.txt file</span>
+												{:else if track.has_embedded_lyrics}
+													<span class="text-[10px] text-amber-400 font-mono bg-amber-950/50 border border-amber-800/50 rounded px-1.5 py-0.5" title="Embedded in audio tags">embedded</span>
+												{/if}
+											</div>
 										</div>
 									</div>
 								{/each}

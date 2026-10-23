@@ -32,41 +32,71 @@ export function getMusicDirectory(): string {
 	return path.resolve('./music');
 }
 
+function isPathWithin(targetPath: string, rootPath: string): boolean {
+	const relative = path.relative(rootPath, targetPath);
+	return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
 /**
  * Determine audio format and quality rating based on metadata
  */
-function detectFormatAndQuality(
+export function detectFormatAndQuality(
 	container?: string,
 	codec?: string,
 	bitrate?: number,
-	bitsPerSample?: number
+	bitsPerSample?: number,
+	sampleRate?: number
 ): { format: AudioFormat; quality: QualityRating } {
 	const c = (codec || container || '').toLowerCase();
+	const brKbps = bitrate && bitrate > 0 ? Math.round(bitrate / 1000) : 0;
+	const isCdQualityOrBetter = (!bitsPerSample || bitsPerSample >= 16) && (!sampleRate || sampleRate >= 44100);
 
+	// FLAC
 	if (c.includes('flac')) {
-		const quality: QualityRating = (bitsPerSample && bitsPerSample > 16) ? 'perfect' : 'good';
+		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
 		return { format: 'FLAC', quality };
 	}
 
+	// ALAC
 	if (c.includes('alac') || c.includes('apple lossless')) {
-		return { format: 'ALAC', quality: 'perfect' };
+		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
+		return { format: 'ALAC', quality };
 	}
 
+	// WAV / PCM / AIFF
 	if (c.includes('wav') || c.includes('pcm') || c.includes('aiff')) {
-		return { format: 'WAV', quality: 'perfect' };
+		const fmt = c.includes('aiff') ? 'AIFF' : 'WAV';
+		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
+		return { format: fmt, quality };
 	}
 
+	// AAC / M4A - judge based on actual bitrate, do not invent 256kbps
 	if (c.includes('aac') || c.includes('mp4a') || c.includes('m4a')) {
-		return { format: 'AAC_256', quality: 'good' };
+		if (brKbps >= 240) {
+			return { format: 'AAC_256', quality: 'good' };
+		}
+		if (brKbps >= 180) {
+			return { format: 'OTHER', quality: 'good' };
+		}
+		if (brKbps >= 120) {
+			return { format: 'OTHER', quality: 'acceptable' };
+		}
+		if (brKbps > 0) {
+			return { format: 'OTHER', quality: 'bad' };
+		}
+		return { format: 'OTHER', quality: 'acceptable' };
 	}
 
+	// OGG / Vorbis / Opus
 	if (c.includes('ogg') || c.includes('vorbis') || c.includes('opus')) {
-		return { format: 'OGG', quality: 'good' };
+		let quality: QualityRating = 'acceptable';
+		if (brKbps >= 190) quality = 'good';
+		else if (brKbps > 0 && brKbps < 120) quality = 'bad';
+		return { format: 'OGG', quality };
 	}
 
-	// MP3 or other lossy
+	// MP3 or other lossy MPEG layer 3
 	if (c.includes('mpeg') || c.includes('mp3') || c.includes('layer 3')) {
-		const brKbps = bitrate ? Math.round(bitrate / 1000) : 0;
 		if (brKbps >= 310) {
 			return { format: 'MP3_320', quality: 'good' };
 		}
@@ -79,7 +109,8 @@ function detectFormatAndQuality(
 		if (brKbps > 0) {
 			return { format: 'MP3_128', quality: 'bad' }; // Low bitrate, needs upgrade!
 		}
-		return { format: 'MP3_320', quality: 'good' };
+		// Bitrate unknown: do not assume 320kbps!
+		return { format: 'OTHER', quality: 'acceptable' };
 	}
 
 	return { format: 'OTHER', quality: 'acceptable' };
@@ -88,7 +119,12 @@ function detectFormatAndQuality(
 /**
  * Detect lyrics: checks companion .lrc / .txt files in same directory, or embedded lyrics tags
  */
-function detectLyrics(filePath: string, embeddedLyrics?: any): { status: LyricsStatus; hasLrc: boolean; hasTxt: boolean } {
+export function detectLyrics(filePath: string, embeddedLyrics?: any): {
+	status: LyricsStatus;
+	hasLrc: boolean;
+	hasTxt: boolean;
+	hasEmbedded: boolean;
+} {
 	const dir = path.dirname(filePath);
 	const baseNameWithoutExt = path.basename(filePath, path.extname(filePath));
 
@@ -97,12 +133,12 @@ function detectLyrics(filePath: string, embeddedLyrics?: any): { status: LyricsS
 
 	const hasLrc = fs.existsSync(lrcPath);
 	if (hasLrc) {
-		return { status: 'synced_lrc', hasLrc: true, hasTxt: false };
+		return { status: 'synced_lrc', hasLrc: true, hasTxt: false, hasEmbedded: false };
 	}
 
 	const hasTxt = fs.existsSync(txtPath);
 	if (hasTxt) {
-		return { status: 'plain_txt', hasLrc: false, hasTxt: true };
+		return { status: 'plain_txt', hasLrc: false, hasTxt: true, hasEmbedded: false };
 	}
 
 	// Check embedded lyrics
@@ -119,18 +155,20 @@ function detectLyrics(filePath: string, embeddedLyrics?: any): { status: LyricsS
 			return {
 				status: hasTimestamps ? 'synced_lrc' : 'plain_txt',
 				hasLrc: false,
-				hasTxt: false
+				hasTxt: false,
+				hasEmbedded: true
 			};
 		}
 	}
 
-	return { status: 'missing', hasLrc: false, hasTxt: false };
+	return { status: 'missing', hasLrc: false, hasTxt: false, hasEmbedded: false };
 }
 
 /**
- * Detect censorship status from title, tags, or file name
+ * Detect censorship status from title, tags, or file name.
+ * Returns 'unknown' if no explicit, clean, or censorship metadata exists.
  */
-function detectCensorship(title: string, rawTags?: any): CensorshipStatus {
+export function detectCensorship(title: string, rawTags?: any): CensorshipStatus {
 	const lowerTitle = title.toLowerCase();
 
 	if (
@@ -140,7 +178,7 @@ function detectCensorship(title: string, rawTags?: any): CensorshipStatus {
 		lowerTitle.includes('(clean version)') ||
 		lowerTitle.includes('(censored)')
 	) {
-		return 'censored'; // Radio edit / censored -> Flagged to replace with explicit!
+		return 'censored'; // Radio edit / censored
 	}
 
 	if (
@@ -151,7 +189,14 @@ function detectCensorship(title: string, rawTags?: any): CensorshipStatus {
 		return 'explicit';
 	}
 
-	// Check iTunes advisory tag: 1 = explicit, 2 = clean
+	if (
+		lowerTitle.includes('(instrumental)') ||
+		lowerTitle.includes('[instrumental]')
+	) {
+		return 'instrumental';
+	}
+
+	// Check iTunes advisory tag: 1 = explicit, 2 = clean/censored
 	if (rawTags?.itunesAdvisory === 1 || rawTags?.['ITUNESADVISORY'] === '1') {
 		return 'explicit';
 	}
@@ -159,7 +204,8 @@ function detectCensorship(title: string, rawTags?: any): CensorshipStatus {
 		return 'censored';
 	}
 
-	return 'clean_original';
+	// Do not assume clean_original without evidence!
+	return 'unknown';
 }
 
 /**
@@ -170,6 +216,7 @@ function findLocalCoverArt(dir: string): string | null {
 		'cover.jpg',
 		'cover.jpeg',
 		'cover.png',
+		'cover.webp',
 		'folder.jpg',
 		'folder.png',
 		'front.jpg',
@@ -182,7 +229,6 @@ function findLocalCoverArt(dir: string): string | null {
 	for (const candidate of candidates) {
 		const full = path.join(dir, candidate);
 		if (fs.existsSync(full)) {
-			// Return relative path or file URL
 			return `/api/library/cover?path=${encodeURIComponent(full)}`;
 		}
 	}
@@ -219,21 +265,22 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 		const albumArtist = common.albumartist || common.artist || 'Unknown Artist';
 		const album = common.album || path.basename(path.dirname(filePath));
 		const year = common.year || null;
-		const trackNumber = common.track.no || 1;
-		const discNumber = common.disk.no || 1;
+		const trackNumber = common.track?.no || 1;
+		const discNumber = common.disk?.no || 1;
 		const durationMs = format.duration ? Math.round(format.duration * 1000) : null;
 
 		const { format: audioFmt, quality: audioQuality } = detectFormatAndQuality(
 			format.container,
 			format.codec,
 			format.bitrate,
-			format.bitsPerSample
+			format.bitsPerSample,
+			format.sampleRate
 		);
 
-		const { status: lyricsStatus, hasLrc, hasTxt } = detectLyrics(filePath, common.lyrics);
+		const { status: lyricsStatus, hasLrc, hasTxt, hasEmbedded } = detectLyrics(filePath, common.lyrics);
 		const censorshipStatus = detectCensorship(title, common);
 
-		// MusicBrainz tags!
+		// MusicBrainz tags
 		const mbAlbumId = cleanMbId(common.musicbrainz_albumid);
 		const mbTrackId = cleanMbId(common.musicbrainz_trackid);
 		const mbArtistId = cleanMbId(common.musicbrainz_artistid);
@@ -261,6 +308,7 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 			lyrics: lyricsStatus,
 			has_lrc_file: hasLrc,
 			has_txt_file: hasTxt,
+			has_embedded_lyrics: hasEmbedded,
 			musicbrainz_album_id: mbAlbumId,
 			musicbrainz_track_id: mbTrackId,
 			musicbrainz_artist_id: mbArtistId,
@@ -274,7 +322,8 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 }
 
 /**
- * Scan a music folder recursively and group audio files by album
+ * Scan a music folder recursively and group audio files by album.
+ * Enforces boundary so only paths within getMusicDirectory() can be scanned.
  */
 export async function scanLibraryDirectory(targetDir?: string): Promise<{
 	albums: ScannedAlbum[];
@@ -282,10 +331,29 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 	libraryPath: string;
 	exists: boolean;
 }> {
-	const dir = targetDir ? path.resolve(targetDir) : getMusicDirectory();
+	const musicDir = getMusicDirectory();
+	let canonicalMusicDir: string;
+	try {
+		canonicalMusicDir = fs.existsSync(musicDir) ? fs.realpathSync(musicDir) : path.resolve(musicDir);
+	} catch {
+		canonicalMusicDir = path.resolve(musicDir);
+	}
 
-	if (!fs.existsSync(dir)) {
-		return { albums: [], totalFiles: 0, libraryPath: dir, exists: false };
+	const requested = targetDir ? path.resolve(targetDir) : canonicalMusicDir;
+	let canonicalTarget: string;
+	try {
+		canonicalTarget = fs.existsSync(requested) ? fs.realpathSync(requested) : requested;
+	} catch {
+		canonicalTarget = requested;
+	}
+
+	// Boundary check
+	if (!isPathWithin(canonicalTarget, canonicalMusicDir) && canonicalTarget !== canonicalMusicDir) {
+		throw new Error(`Access denied: Target directory is outside configured music directory (${canonicalMusicDir}).`);
+	}
+
+	if (!fs.existsSync(canonicalTarget)) {
+		return { albums: [], totalFiles: 0, libraryPath: canonicalTarget, exists: false };
 	}
 
 	const audioFiles: string[] = [];
@@ -311,7 +379,7 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 		}
 	}
 
-	walk(dir);
+	walk(canonicalTarget);
 
 	// Parse audio metadata for each file
 	const scannedTracks: ScannedTrack[] = [];
@@ -323,23 +391,27 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 	}
 
 	// Group tracks by album:
-	// Prioritize folder + album/artist so all tracks in an album folder are grouped together
+	// Prevent merging disparate folders: identify album folder (handling CD1/Disc 2 subfolders)
 	const albumGroups: { [key: string]: { tracks: ScannedTrack[]; folder: string } } = {};
 
 	for (const tr of scannedTracks) {
-		const folder = path.dirname(tr.file_path);
-		let key: string;
+		const trackFolder = path.dirname(tr.file_path);
+		const folderName = path.basename(trackFolder).toLowerCase();
+		const isDiscSubfolder = /^(cd|disc|disk)\s*\d+$/i.test(folderName);
+		const albumFolder = isDiscSubfolder ? path.dirname(trackFolder) : trackFolder;
 
+		let key: string;
 		if (tr.musicbrainz_album_id) {
-			key = `mb:${tr.musicbrainz_album_id}`;
+			// Scoped to the album folder so unrelated folders never get accidentally merged
+			key = `${albumFolder}::mb:${tr.musicbrainz_album_id}`;
 		} else if (tr.album && tr.album !== 'Unknown Album') {
-			key = `${folder}::${tr.album.toLowerCase()}`;
+			key = `${albumFolder}::${tr.album.toLowerCase()}`;
 		} else {
-			key = `dir:${folder}`;
+			key = `dir:${albumFolder}`;
 		}
 
 		if (!albumGroups[key]) {
-			albumGroups[key] = { tracks: [], folder };
+			albumGroups[key] = { tracks: [], folder: albumFolder };
 		}
 		albumGroups[key].tracks.push(tr);
 	}
@@ -350,11 +422,15 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 		// MusicBrainz ID if present on ANY track in this album
 		const mbId = group.tracks.find((t) => t.musicbrainz_album_id)?.musicbrainz_album_id || null;
 
-		// Propagate album MBID to all tracks in this album if missing
+		// Only propagate album MBID to sibling tracks if album titles are consistent
 		if (mbId) {
+			const candidateAlbum = group.tracks.find((t) => t.musicbrainz_album_id)?.album;
 			for (const t of group.tracks) {
 				if (!t.musicbrainz_album_id) {
-					t.musicbrainz_album_id = mbId;
+					// Check for conflicting album title before propagating
+					if (!candidateAlbum || !t.album || t.album.toLowerCase() === candidateAlbum.toLowerCase()) {
+						t.musicbrainz_album_id = mbId;
+					}
 				}
 			}
 		}
@@ -420,7 +496,7 @@ export async function scanLibraryDirectory(targetDir?: string): Promise<{
 	return {
 		albums: scannedAlbums,
 		totalFiles: audioFiles.length,
-		libraryPath: dir,
+		libraryPath: canonicalTarget,
 		exists: true
 	};
 }
@@ -432,7 +508,6 @@ export async function importScannedAlbum(
 	album: ScannedAlbum,
 	selectedFilePaths?: string[]
 ): Promise<number> {
-	// Filter tracks if selectedFilePaths provided
 	let chosenTracks = album.tracks;
 	if (selectedFilePaths && selectedFilePaths.length > 0) {
 		const selectedSet = new Set(selectedFilePaths);

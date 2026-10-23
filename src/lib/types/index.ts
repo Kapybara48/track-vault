@@ -22,7 +22,8 @@ export type CensorshipStatus =
 	| 'explicit'       // Original explicit version
 	| 'clean_original' // Track is inherently clean (not censored)
 	| 'censored'       // Radio edit / bleeped - wants uncensored replacement
-	| 'instrumental';  // No vocals
+	| 'instrumental'   // No vocals
+	| 'unknown';       // Unverified / no advisory tags present
 
 export type LyricsStatus =
 	| 'synced_lrc'    // Synced time-coded .lrc
@@ -174,6 +175,7 @@ export interface ScannedTrack {
 	lyrics: LyricsStatus;
 	has_lrc_file: boolean;
 	has_txt_file: boolean;
+	has_embedded_lyrics?: boolean;
 	musicbrainz_album_id: string | null;
 	musicbrainz_track_id: string | null;
 	musicbrainz_artist_id: string | null;

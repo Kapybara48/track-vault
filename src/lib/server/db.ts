@@ -618,7 +618,7 @@ export function createAlbum(
 		for (const t of tracksData) {
 			const format = t.format || 'FLAC';
 			const quality = t.quality_rating || 'good';
-			const censorship = t.censorship || 'clean_original';
+			const censorship = t.censorship || 'unknown';
 			const lyrics = t.lyrics || 'missing';
 			const needsAtt = computeNeedsAttention(quality, censorship, lyrics);
 
@@ -832,7 +832,7 @@ export function addTrackToAlbum(
 
 	const format = trackData.format || 'FLAC';
 	const quality = trackData.quality_rating || 'good';
-	const censorship = trackData.censorship || 'clean_original';
+	const censorship = trackData.censorship || 'unknown';
 	const lyrics = trackData.lyrics || 'missing';
 	const rules = getAlbumFixerRules(albumId);
 	const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);

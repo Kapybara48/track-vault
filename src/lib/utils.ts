@@ -31,9 +31,10 @@ export const QUALITY_OPTIONS: { value: QualityRating; label: string; color: stri
 
 export const CENSORSHIP_OPTIONS: { value: CensorshipStatus; label: string; shortLabel: string; color: string }[] = [
 	{ value: 'explicit', label: 'Explicit', shortLabel: 'Explicit', color: 'text-amber-300 bg-amber-950/60 border-amber-800' },
-	{ value: 'clean_original', label: 'Clean', shortLabel: 'Clean', color: 'text-neutral-300 bg-neutral-800/80 border-neutral-700' },
+	{ value: 'clean_original', label: 'Clean Original', shortLabel: 'Clean', color: 'text-neutral-300 bg-neutral-800/80 border-neutral-700' },
 	{ value: 'censored', label: 'Censored', shortLabel: 'Censored', color: 'text-rose-300 bg-rose-950/80 border-rose-600 font-semibold' },
-	{ value: 'instrumental', label: 'Instrumental', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' }
+	{ value: 'instrumental', label: 'Instrumental', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' },
+	{ value: 'unknown', label: 'Unverified / Unknown', shortLabel: 'Unknown', color: 'text-neutral-400 bg-neutral-900/60 border-neutral-800' }
 ];
 
 export const LYRICS_OPTIONS: { value: LyricsStatus; label: string; shortLabel: string; color: string }[] = [

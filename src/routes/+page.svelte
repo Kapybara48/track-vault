@@ -550,15 +550,19 @@
 								</span>
 
 								<!-- Censorship Badge -->
-								<span class="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color}">
+								<span class="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium {CENSORSHIP_OPTIONS.find(c => c.value === track.censorship)?.color || 'text-neutral-400 border-neutral-800'}">
 									{#if track.censorship === 'censored'}
 										<ShieldAlert class="h-3 w-3 text-rose-400" />
 										<span>Censored</span>
 									{:else if track.censorship === 'explicit'}
 										<span class="font-bold text-amber-300">E</span>
 										<span>Explicit</span>
-									{:else}
+									{:else if track.censorship === 'clean_original'}
 										<span>Clean</span>
+									{:else if track.censorship === 'instrumental'}
+										<span>Inst.</span>
+									{:else}
+										<span class="text-neutral-400">Unverified</span>
 									{/if}
 								</span>
 

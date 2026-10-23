@@ -3,10 +3,14 @@ import type { RequestHandler } from './$types.js';
 import { searchMusicBrainz } from '$lib/server/musicbrainz.js';
 
 export const GET: RequestHandler = async ({ url }) => {
-	const query = url.searchParams.get('q') || '';
-	const artist = url.searchParams.get('artist') || '';
+	const rawQuery = url.searchParams.get('q') || '';
+	const rawArtist = url.searchParams.get('artist') || '';
 
-	if (!query.trim() && !artist.trim()) {
+	// Limit length to prevent abusive/oversized requests
+	const query = rawQuery.trim().slice(0, 200);
+	const artist = rawArtist.trim().slice(0, 200);
+
+	if (!query && !artist) {
 		return json([]);
 	}
 
@@ -14,6 +18,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		const results = await searchMusicBrainz(query, artist || undefined);
 		return json(results);
 	} catch (err: any) {
-		return json({ error: err.message }, { status: 500 });
+		console.error('MusicBrainz search error:', err);
+		return json({ error: err.message || 'Failed to search MusicBrainz' }, { status: 500 });
 	}
 };
