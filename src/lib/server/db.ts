@@ -176,10 +176,11 @@ export function updateAlbumFixerRules(
 	const rulesJson = JSON.stringify(rules);
 
 	if (applyToAll) {
-		db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now')").run(rulesJson);
+		const updateAlbumStmt = db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now')");
 		const allTracks = db.prepare('SELECT * FROM tracks').all() as Track[];
 		const updateTrackStmt = db.prepare("UPDATE tracks SET needs_attention = ?, updated_at = datetime('now') WHERE id = ?");
 		const tx = db.transaction(() => {
+			updateAlbumStmt.run(rulesJson);
 			for (const t of allTracks) {
 				const na = computeNeedsAttention(t.quality_rating, t.censorship, t.lyrics, t.format, rules);
 				updateTrackStmt.run(na, t.id);
@@ -187,10 +188,11 @@ export function updateAlbumFixerRules(
 		});
 		tx();
 	} else {
-		db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now') WHERE id = ?").run(rulesJson, albumId);
+		const updateAlbumStmt = db.prepare("UPDATE albums SET fixer_rules = ?, updated_at = datetime('now') WHERE id = ?");
 		const tracks = db.prepare('SELECT * FROM tracks WHERE album_id = ?').all(albumId) as Track[];
 		const updateTrackStmt = db.prepare("UPDATE tracks SET needs_attention = ?, updated_at = datetime('now') WHERE id = ?");
 		const tx = db.transaction(() => {
+			updateAlbumStmt.run(rulesJson, albumId);
 			for (const t of tracks) {
 				const na = computeNeedsAttention(t.quality_rating, t.censorship, t.lyrics, t.format, rules);
 				updateTrackStmt.run(na, t.id);
@@ -302,7 +304,8 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 	const trackParams: (string | number)[] = [];
 
 	if (effectiveChecked !== undefined) {
-		trackConditions.push(`t2.manually_checked = ${effectiveChecked}`);
+		trackConditions.push("t2.manually_checked = ?");
+		trackParams.push(effectiveChecked);
 	}
 
 	if (effectiveNotFormat) {

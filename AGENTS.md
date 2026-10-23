@@ -54,6 +54,11 @@ This document preserves persistent context, architectural conventions, recent ch
    - Added `changePassword` in `src/lib/server/auth.ts` with current password verification and 6+ character validation.
    - Added API endpoint `POST /api/auth/change-password`.
    - Added Settings link & user profile shortcut to desktop and mobile navigation in `src/lib/components/Navbar.svelte`.
+6. **Defensive Password Verification (`verifyPassword`)**: Added length validation and try/catch around `crypto.timingSafeEqual` preventing `RangeError` crashes on malformed hashes.
+7. **Production Auth Safeguard**: Blocked `AUTH_DISABLED=true` in production mode unless explicitly confirmed via `ALLOW_INSECURE_AUTH_BYPASS=true`.
+8. **Parameterized Query in `getAlbums()`**: Replaced `${effectiveChecked}` string interpolation with parameterized binding `t2.manually_checked = ?`.
+9. **Atomic Fixer Rule Batch Updates**: Enclosed both the album fixer rules update and track updates inside a single SQLite transaction.
+10. **Lossless Audio Quality Refinement**: Differentiated Hi-Res lossless (24-bit / >48kHz -> `perfect`) from standard CD quality lossless (16-bit / 44.1kHz -> `good`).
 
 ---
 

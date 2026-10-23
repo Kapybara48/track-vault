@@ -49,24 +49,25 @@ export function detectFormatAndQuality(
 ): { format: AudioFormat; quality: QualityRating } {
 	const c = (codec || container || '').toLowerCase();
 	const brKbps = bitrate && bitrate > 0 ? Math.round(bitrate / 1000) : 0;
+	const isHiRes = (bitsPerSample && bitsPerSample > 16) || (sampleRate && sampleRate > 48000);
 	const isCdQualityOrBetter = (!bitsPerSample || bitsPerSample >= 16) && (!sampleRate || sampleRate >= 44100);
 
 	// FLAC
 	if (c.includes('flac')) {
-		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
+		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
 		return { format: 'FLAC', quality };
 	}
 
 	// ALAC
 	if (c.includes('alac') || c.includes('apple lossless')) {
-		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
+		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
 		return { format: 'ALAC', quality };
 	}
 
 	// WAV / PCM / AIFF
 	if (c.includes('wav') || c.includes('pcm') || c.includes('aiff')) {
 		const fmt = c.includes('aiff') ? 'AIFF' : 'WAV';
-		const quality: QualityRating = isCdQualityOrBetter ? 'perfect' : 'acceptable';
+		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
 		return { format: fmt, quality };
 	}
 

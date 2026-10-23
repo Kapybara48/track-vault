@@ -15,11 +15,19 @@ let authDisabledWarned = false;
 export function isAuthDisabled(): boolean {
 	const val = process.env.AUTH_DISABLED || process.env.DISABLE_AUTH;
 	const disabled = val === 'true' || val === '1';
-	if (disabled && !authDisabledWarned) {
-		authDisabledWarned = true;
-		console.warn(
-			'⚠️  SECURITY WARNING: Authentication is globally disabled (AUTH_DISABLED=true). All requests are granted administrator privileges.'
-		);
+	if (disabled) {
+		if (process.env.NODE_ENV === 'production' && process.env.ALLOW_INSECURE_AUTH_BYPASS !== 'true') {
+			console.error(
+				'🚨 CRITICAL SECURITY ERROR: Authentication bypass (AUTH_DISABLED=true) is blocked in production mode. Set ALLOW_INSECURE_AUTH_BYPASS=true if this instance is running on an isolated, strictly private network.'
+			);
+			return false;
+		}
+		if (!authDisabledWarned) {
+			authDisabledWarned = true;
+			console.warn(
+				'⚠️  SECURITY WARNING: Authentication is globally disabled (AUTH_DISABLED=true). All requests are granted administrator privileges.'
+			);
+		}
 	}
 	return disabled;
 }
@@ -66,11 +74,25 @@ export function hashPassword(password: string): { hash: string; salt: string } {
 }
 
 /**
- * Verify password against stored hash and salt
+ * Verify password against stored hash and salt defensively
  */
 export function verifyPassword(password: string, storedHash: string, salt: string): boolean {
-	const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-	return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(storedHash, 'hex'));
+	if (!password || !storedHash || !salt) {
+		return false;
+	}
+	try {
+		const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+		const hashBuf = Buffer.from(hash, 'hex');
+		const storedBuf = Buffer.from(storedHash, 'hex');
+
+		if (hashBuf.length !== storedBuf.length) {
+			return false;
+		}
+
+		return crypto.timingSafeEqual(hashBuf, storedBuf);
+	} catch {
+		return false;
+	}
 }
 
 /**
