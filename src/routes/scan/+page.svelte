@@ -115,19 +115,34 @@
 	}
 
 	function toggleAlbumSelected(album: ScannedAlbum) {
-		album.selected = !album.selected;
+		const orig = scannedAlbums.find((a) => a.album_key === album.album_key) || album;
+		const nextSelected = !orig.tracks.some((t) => t.selected);
+		orig.selected = nextSelected;
+		album.selected = nextSelected;
+		for (const tr of orig.tracks) {
+			tr.selected = nextSelected;
+		}
 		for (const tr of album.tracks) {
-			tr.selected = album.selected;
+			tr.selected = nextSelected;
 		}
 	}
 
 	function toggleTrackSelected(album: ScannedAlbum, track: ScannedTrack) {
+		const orig = scannedAlbums.find((a) => a.album_key === album.album_key) || album;
+		const origTrack = orig.tracks.find((t) => t.file_path === track.file_path) || track;
 		track.selected = !track.selected;
-		album.selected = album.tracks.some((t) => t.selected);
+		origTrack.selected = track.selected;
+		orig.selected = orig.tracks.some((t) => t.selected);
+		album.selected = orig.selected;
 	}
 
 	function selectAllTracks(album: ScannedAlbum, select: boolean) {
+		const orig = scannedAlbums.find((a) => a.album_key === album.album_key) || album;
+		orig.selected = select;
 		album.selected = select;
+		for (const tr of orig.tracks) {
+			tr.selected = select;
+		}
 		for (const tr of album.tracks) {
 			tr.selected = select;
 		}
@@ -284,7 +299,13 @@
 			}
 			const origAlbum = scannedAlbums.find((a) => a.album_key === album.album_key);
 			if (origAlbum) {
+				for (const origTr of origAlbum.tracks) {
+					if (album.visibleTracks.some((vt) => vt.file_path === origTr.file_path)) {
+						origTr.selected = select;
+					}
+				}
 				origAlbum.selected = origAlbum.tracks.some((t) => t.selected);
+				album.selected = origAlbum.selected;
 			}
 		}
 	}
@@ -530,6 +551,7 @@
 			{#each displayedAlbums as album (album.album_key)}
 				{@const isExpanded = !!expandedAlbums[album.album_key]}
 				{@const selectedCount = album.tracks.filter((t) => t.selected).length}
+				{@const isAlbumSelected = selectedCount > 0}
 				{@const isImporting = importingAlbumKey === album.album_key}
 
 				<div class="rounded-2xl border border-neutral-800 bg-neutral-900/50 shadow-md transition hover:border-neutral-700 {album.already_in_vault ? 'opacity-85' : ''}">
@@ -538,7 +560,7 @@
 						<div class="flex items-center gap-4 min-w-0 flex-1">
 							<!-- Checkbox for entire album -->
 							<CustomCheckbox
-								checked={album.selected}
+								checked={isAlbumSelected}
 								disabled={album.already_in_vault}
 								title="Select all tracks in this album"
 								onchange={() => toggleAlbumSelected(album)}
