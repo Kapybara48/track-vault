@@ -30,6 +30,7 @@
 		ListMusic,
 		Filter
 	} from '@lucide/svelte';
+	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
@@ -151,6 +152,13 @@
 					class="h-full rounded-full transition-all duration-500 {data.stats.health_score >= 80 ? 'bg-emerald-500' : data.stats.health_score >= 50 ? 'bg-amber-500' : 'bg-rose-500'}"
 					style="width: {data.stats.health_score}%"
 				></div>
+			</div>
+			<div class="mt-2.5 flex items-center justify-between text-[11px] text-neutral-400">
+				<span class="flex items-center gap-1 text-emerald-400 font-medium">
+					<CheckCircle2 class="h-3 w-3" />
+					{data.stats.checked_tracks_count || 0}/{data.stats.total_tracks} verified
+				</span>
+				<span>{Math.round(((data.stats.checked_tracks_count || 0) / (data.stats.total_tracks || 1)) * 100)}% audited</span>
 			</div>
 		</div>
 
@@ -380,6 +388,22 @@
 				>
 					synced
 				</button>
+				<button
+					type="button"
+					onclick={() => quickSearch('!checked')}
+					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-amber-300 hover:text-white"
+					title="Show songs not yet manually checked"
+				>
+					!checked
+				</button>
+				<button
+					type="button"
+					onclick={() => quickSearch('checked')}
+					class="rounded bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300 hover:text-white"
+					title="Show songs manually checked & verified"
+				>
+					checked
+				</button>
 				{#if data.searchQuery || data.activeFilter !== 'all' || selectedFormat !== 'all' || selectedCensorship !== 'all' || selectedLyrics !== 'all'}
 					<button
 						type="button"
@@ -409,6 +433,25 @@
 			>
 				<TriangleAlert class="h-3 w-3" />
 				Needs Attention
+			</button>
+
+			<button
+				type="button"
+				onclick={() => setFilterPill('unverified')}
+				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition {data.activeFilter === 'unverified' ? 'bg-amber-700 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+				title="Albums with unverified tracks"
+			>
+				<span>Unverified</span>
+			</button>
+
+			<button
+				type="button"
+				onclick={() => setFilterPill('verified')}
+				class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition {data.activeFilter === 'verified' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+				title="Albums where all tracks are manually verified"
+			>
+				<CheckCircle2 class="h-3 w-3 text-emerald-300" />
+				<span>100% Verified</span>
 			</button>
 
 			<button
@@ -519,9 +562,20 @@
 
 				<div class="rounded-2xl border border-neutral-800 bg-neutral-900/40 divide-y divide-neutral-800/80 overflow-hidden">
 					{#each tracksList as track (track.id)}
-						<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 transition hover:bg-neutral-900/80 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : ''}">
+						<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 transition hover:bg-neutral-900/80 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}">
 							<!-- Track info with thumbnail -->
 							<div class="flex items-center gap-3 min-w-0 flex-1">
+								<!-- Manual Checkbox -->
+								<div
+									class="flex items-center shrink-0"
+									title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked (100% verified)'}
+								>
+									<CustomCheckbox
+										checked={track.manually_checked === 1}
+										onchange={(checked) => quickFixTrack(track.id, { manually_checked: checked ? 1 : 0 })}
+									/>
+								</div>
+
 								<a
 									href="/album/{track.album_id}"
 									class="relative aspect-square h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-950 border border-neutral-800 hover:border-emerald-500 transition"
@@ -543,9 +597,18 @@
 
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-2">
-										<span class="truncate font-bold text-neutral-100 text-sm" title={track.title}>
+										<span class="truncate font-bold text-sm {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
 											{track.title}
 										</span>
+										{#if track.manually_checked === 1}
+											<span
+												class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
+												title="Manually checked and verified"
+											>
+												<CheckCircle2 class="h-3 w-3" />
+												Checked
+											</span>
+										{/if}
 										<span class="text-xs text-neutral-500 font-mono">
 											#{track.track_number}
 										</span>

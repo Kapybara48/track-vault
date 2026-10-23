@@ -70,6 +70,12 @@ export function parseSearchQuery(query: string): SearchFilters {
 		} else if (token === 'perfect' || token === 'quality:perfect') {
 			filters.quality = 'perfect';
 		}
+		// Manually checked / verified matches
+		else if (token === 'checked' || token === 'verified' || token === 'is:checked' || token === 'is:verified') {
+			filters.manuallyChecked = 1;
+		} else if (token === '!checked' || token === '!verified' || token === 'unverified' || token === 'unchecked' || token === 'is:!checked') {
+			filters.manuallyChecked = 0;
+		}
 		// Normal search query word
 		else {
 			textWords.push(rawToken);
@@ -135,6 +141,13 @@ export function matchesTrackFilters(track: Track, filters: SearchFilters): boole
 		const albumMatch = (track.album_title || '').toLowerCase().includes(q);
 		const albumArtistMatch = (track.album_artist || '').toLowerCase().includes(q);
 		if (!titleMatch && !artistMatch && !albumMatch && !albumArtistMatch) {
+			return false;
+		}
+	}
+
+	// Manually checked filter
+	if (filters.manuallyChecked !== undefined) {
+		if ((track.manually_checked || 0) !== filters.manuallyChecked) {
 			return false;
 		}
 	}

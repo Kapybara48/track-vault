@@ -16,8 +16,10 @@
 		Disc,
 		Clock,
 		Mic2,
-		Sparkles
+		Sparkles,
+		Check
 	} from '@lucide/svelte';
+	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 
 	interface Props {
 		track: Track;
@@ -72,19 +74,41 @@
 </script>
 
 <div
-	class="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/60 p-3.5 transition hover:bg-neutral-900/40 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : ''}"
+	class="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/60 p-3.5 transition hover:bg-neutral-900/40 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}"
 >
-	<!-- Left Side: Track Number, Title, Artist -->
+	<!-- Left Side: Checkbox, Track Number, Title, Artist -->
 	<div class="flex items-center gap-3 min-w-0 flex-1">
-		<span class="w-7 text-right text-xs font-mono font-medium text-neutral-500">
+		<!-- Manual Check / Verification Checkbox -->
+		<div
+			class="flex items-center shrink-0"
+			title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked (100% verified)'}
+		>
+			<CustomCheckbox
+				checked={track.manually_checked === 1}
+				disabled={isUpdating}
+				onchange={(checked) => updateField('manually_checked', checked ? 1 : 0)}
+			/>
+		</div>
+
+		<span class="w-6 text-right text-xs font-mono font-medium text-neutral-500">
 			{track.track_number}
 		</span>
 
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
-				<span class="truncate text-sm font-semibold text-neutral-100" title={track.title}>
+				<span class="truncate text-sm font-semibold {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
 					{track.title}
 				</span>
+
+				{#if track.manually_checked === 1}
+					<span
+						class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
+						title="Manually checked: 100% verified correct"
+					>
+						<CheckCircle2 class="h-3 w-3" />
+						Checked
+					</span>
+				{/if}
 
 				{#if track.needs_attention}
 					<span

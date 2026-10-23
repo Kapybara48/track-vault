@@ -13,7 +13,15 @@ export const load: PageServerLoad = async ({ url }) => {
 	const lyrics = url.searchParams.get('lyrics') || undefined;
 	const notLyrics = url.searchParams.get('notLyrics') || undefined;
 	const quality = url.searchParams.get('quality') || undefined;
+	const checked = url.searchParams.get('checked');
 	const view = (url.searchParams.get('view') || 'albums') as 'albums' | 'tracks';
+
+	let manuallyChecked: number | undefined = undefined;
+	if (checked === '1' || checked === 'true' || checked === 'checked') {
+		manuallyChecked = 1;
+	} else if (checked === '0' || checked === 'false' || checked === 'unverified' || checked === 'unchecked') {
+		manuallyChecked = 0;
+	}
 
 	const options: SearchFilters = {
 		filter,
@@ -23,7 +31,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		notCensorship: notCensorship || undefined,
 		lyrics: lyrics && lyrics !== 'all' ? lyrics : undefined,
 		notLyrics: notLyrics || undefined,
-		quality: quality && quality !== 'all' ? quality : undefined
+		quality: quality && quality !== 'all' ? quality : undefined,
+		manuallyChecked
 	};
 
 	// If format starts with !, e.g. format="!FLAC"

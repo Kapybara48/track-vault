@@ -23,6 +23,7 @@
 		Filter,
 		RotateCcw
 	} from '@lucide/svelte';
+	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
@@ -35,6 +36,7 @@
 	let localLyrics = $state<string>('all');
 	let localQuality = $state<string>('all');
 	let localFormat = $state<string>('all');
+	let localChecked = $state<string>('all');
 
 	$effect(() => {
 		tracks = [...data.tracks];
@@ -85,6 +87,13 @@
 				}
 			}
 
+			// Manually checked filter
+			if (localChecked !== 'all') {
+				if ((t.manually_checked || 0).toString() !== localChecked) {
+					return false;
+				}
+			}
+
 			return true;
 		});
 	});
@@ -95,6 +104,7 @@
 		localLyrics = 'all';
 		localQuality = 'all';
 		localFormat = 'all';
+		localChecked = 'all';
 	}
 
 	function setIssueType(type: string) {
@@ -187,6 +197,16 @@
 			<FileText class="h-4 w-4 text-amber-300" />
 			Unsynced LRC ({data.stats.unsynced_lyrics_count})
 		</button>
+
+		<button
+			type="button"
+			onclick={() => setIssueType('unverified')}
+			class="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition {data.activeType === 'unverified' ? 'bg-amber-700 text-white shadow-md shadow-amber-700/30' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}"
+			title="Show songs not yet manually checked"
+		>
+			<TriangleAlert class="h-4 w-4 text-amber-400" />
+			Unverified ({data.stats.total_tracks - (data.stats.checked_tracks_count || 0)})
+		</button>
 	</div>
 
 	<!-- Local Multi-Criteria Filter & Search Toolbar -->
@@ -205,6 +225,15 @@
 
 			<!-- Filter Selects -->
 			<div class="flex flex-wrap items-center gap-2">
+				<!-- Verification Filter -->
+				<select
+					bind:value={localChecked}
+					class="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+				>
+					<option value="all">All Verification</option>
+					<option value="0">Unverified Only</option>
+					<option value="1">Checked Only</option>
+				</select>
 				<!-- Censorship Filter -->
 				<select
 					bind:value={localCensorship}
@@ -284,9 +313,20 @@
 		<div class="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/30">
 			<div class="divide-y divide-neutral-800/60">
 				{#each filteredTracks as track (track.id)}
-					<div class="group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 transition hover:bg-neutral-900/50">
+					<div class="group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 transition hover:bg-neutral-900/50 {track.needs_attention ? 'border-l-4 border-l-amber-500/80 bg-amber-500/[0.02]' : track.manually_checked === 1 ? 'border-l-4 border-l-emerald-500/60 bg-emerald-500/[0.02]' : ''}">
 						<!-- Track & Album Info -->
 						<div class="flex items-center gap-4 min-w-0 flex-1">
+							<!-- Manual Checkbox -->
+							<div
+								class="flex items-center shrink-0"
+								title={track.manually_checked === 1 ? 'Marked as manually checked & verified (Click to uncheck)' : 'Click to mark as manually checked (100% verified)'}
+							>
+								<CustomCheckbox
+									checked={track.manually_checked === 1}
+									onchange={(checked) => quickFix(track.id, { manually_checked: checked ? 1 : 0 })}
+								/>
+							</div>
+
 							<!-- Album Cover Thumbnail -->
 							<a href="/album/{track.album_id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-neutral-950 border border-neutral-800">
 								{#if track.album_cover_url}
@@ -308,9 +348,18 @@
 							<!-- Titles -->
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
-									<span class="truncate font-bold text-neutral-100 text-sm" title={track.title}>
+									<span class="truncate font-bold text-sm {track.manually_checked === 1 ? 'text-emerald-100' : 'text-neutral-100'}" title={track.title}>
 										{track.title}
 									</span>
+									{#if track.manually_checked === 1}
+										<span
+											class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30"
+											title="Manually checked: 100% verified correct"
+										>
+											<CheckCircle2 class="h-3 w-3" />
+											Checked
+										</span>
+									{/if}
 									<span class="text-xs text-neutral-500 font-mono">
 										#{track.track_number}
 									</span>
@@ -389,6 +438,16 @@
 
 							<!-- Quick 1-Click Fix Buttons -->
 							<div class="ml-2 flex items-center gap-1.5 border-l border-neutral-800 pl-3">
+								{#if track.manually_checked !== 1}
+									<button
+										type="button"
+										onclick={() => quickFix(track.id, { manually_checked: 1 })}
+										class="rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition active:scale-95"
+										title="Mark this song as manually checked (100% verified)"
+									>
+										✓ Verify
+									</button>
+								{/if}
 								{#if track.quality_rating === 'bad' || track.quality_rating === 'needs_upgrade' || track.format !== 'FLAC'}
 									<button
 										type="button"

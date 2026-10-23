@@ -76,6 +76,7 @@
 	let batchQuality = $state<QualityRating | ''>('');
 	let batchCensorship = $state<CensorshipStatus | ''>('');
 	let batchLyrics = $state<LyricsStatus | ''>('');
+	let batchManuallyChecked = $state<number | ''>('');
 	let isBatchSubmitting = $state(false);
 
 	// Edit album form state
@@ -121,6 +122,10 @@
 
 	const issuesCount = $derived(
 		tracks.filter(t => t.needs_attention === 1).length
+	);
+
+	const checkedCount = $derived(
+		tracks.filter(t => t.manually_checked === 1).length
 	);
 
 	const displayedTracks = $derived.by(() => {
@@ -201,6 +206,7 @@
 			if (batchQuality) payload.quality_rating = batchQuality;
 			if (batchCensorship) payload.censorship = batchCensorship;
 			if (batchLyrics) payload.lyrics = batchLyrics;
+			if (batchManuallyChecked !== '') payload.manually_checked = batchManuallyChecked;
 
 			const res = await fetch(`/api/albums/${album.id}/batch`, {
 				method: 'PATCH',
@@ -214,6 +220,25 @@
 			}
 		} catch (err) {
 			console.error('Failed to run batch update:', err);
+		} finally {
+			isBatchSubmitting = false;
+		}
+	}
+
+	async function setAllVerified(verified: boolean) {
+		isBatchSubmitting = true;
+		try {
+			const res = await fetch(`/api/albums/${album.id}/batch`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ manually_checked: verified ? 1 : 0 })
+			});
+			if (res.ok) {
+				tracks = tracks.map((t) => ({ ...t, manually_checked: verified ? 1 : 0 }));
+				await invalidateAll();
+			}
+		} catch (err) {
+			console.error('Failed to update verification status:', err);
 		} finally {
 			isBatchSubmitting = false;
 		}
@@ -408,6 +433,15 @@
 						</span>
 					{/if}
 
+					<!-- Verification Audit Progress Badge -->
+					<span
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition {checkedCount === tracks.length && tracks.length > 0 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : 'bg-neutral-900/80 text-neutral-300 border-neutral-700'}"
+						title="Manually checked songs (100% verified metadata & audio)"
+					>
+						<CheckCircle2 class="h-4 w-4 {checkedCount === tracks.length && tracks.length > 0 ? 'text-emerald-400' : 'text-neutral-500'}" />
+						<span>{checkedCount} / {tracks.length} Manually Checked</span>
+					</span>
+
 					{#if badQualityCount > 0}
 						<span class="rounded-lg bg-rose-950/70 px-2.5 py-1 text-xs font-medium text-rose-300 border border-rose-800">
 							{badQualityCount} Bad Quality / Low Bitrate
@@ -515,12 +549,12 @@
 				</div>
 
 				<!-- Track Search / Filter in Album -->
-				<div class="relative w-48 sm:w-56">
+				<div class="relative w-48 sm:w-60">
 					<Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
 					<input
 						type="text"
 						bind:value={trackSearch}
-						placeholder="Filter tracks: !flac, mp3..."
+						placeholder="Filter tracks: !flac, checked, !checked..."
 						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-8 pr-2.5 py-1 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
 					/>
 				</div>
@@ -529,6 +563,23 @@
 			<!-- Batch quick-apply to whole album -->
 			<div class="flex flex-wrap items-center gap-2 text-xs">
 				<span class="text-[11px] font-semibold text-neutral-400">Batch album:</span>
+
+				<!-- Batch Verification -->
+				<select
+					onchange={(e) => {
+						if (e.currentTarget.value) {
+							setAllVerified(e.currentTarget.value === '1');
+							e.currentTarget.value = '';
+						}
+					}}
+					class="rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500 font-medium"
+					title="Mark all tracks in this album as verified or unverified"
+				>
+					<option value="">Set Verification...</option>
+					<option value="1">✓ Mark All as Checked</option>
+					<option value="0">✗ Unmark All</option>
+				</select>
+
 				<select
 					onchange={(e) => {
 						if (e.currentTarget.value) {
@@ -692,6 +743,18 @@
 						{#each LYRICS_OPTIONS as opt}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
+					</select>
+				</div>
+
+				<div>
+					<label class="block text-xs font-semibold text-neutral-300 mb-1">Set Manual Check Status</label>
+					<select
+						bind:value={batchManuallyChecked}
+						class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					>
+						<option value="">-- Keep Current Status --</option>
+						<option value={1}>✓ Mark as Manually Checked (100% Verified)</option>
+						<option value={0}>✗ Unmark (Unverified)</option>
 					</select>
 				</div>
 			</div>

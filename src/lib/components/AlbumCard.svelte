@@ -40,7 +40,12 @@
 
 		<!-- Health Badge on Top Right -->
 		<div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
-			{#if !hasIssues && (album.track_count || 0) > 0}
+			{#if album.checked_count !== undefined && (album.track_count || 0) > 0 && album.checked_count === album.track_count}
+				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-900/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-200 border border-emerald-500/80 backdrop-blur-md shadow-sm" title="All {album.track_count} tracks manually verified">
+					<CheckCircle2 class="h-3 w-3 text-emerald-300" />
+					Verified
+				</span>
+			{:else if !hasIssues && (album.track_count || 0) > 0}
 				<span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/90 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-700/60 backdrop-blur-md shadow-sm">
 					<CheckCircle2 class="h-3 w-3" />
 					Vault Ready
@@ -75,7 +80,15 @@
 
 		<div class="mt-3 flex items-center justify-between border-t border-neutral-800/60 pt-2.5 text-xs text-neutral-500">
 			<span>{album.release_year || 'Unknown Year'}</span>
-			<span>{album.track_count || 0} tracks</span>
+			<span class="flex items-center gap-1.5">
+				{#if album.checked_count !== undefined && (album.track_count || 0) > 0}
+					<span class="{album.checked_count === album.track_count ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}" title="{album.checked_count} of {album.track_count} tracks manually checked">
+						{album.checked_count}/{album.track_count} checked
+					</span>
+					<span>•</span>
+				{/if}
+				<span>{album.track_count || 0} tracks</span>
+			</span>
 		</div>
 
 		<!-- Matching Tracks Badge when specific track search is active -->

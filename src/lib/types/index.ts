@@ -54,6 +54,7 @@ export interface SearchFilters {
 	quality?: string;
 	notQuality?: string;
 	filter?: string;
+	manuallyChecked?: number; // 1 for checked, 0 for unchecked
 }
 
 export interface Album {
@@ -74,6 +75,7 @@ export interface Album {
 	bad_quality_count?: number;
 	censored_count?: number;
 	missing_lyrics_count?: number;
+	checked_count?: number;
 	matched_tracks_count?: number;
 	parsed_fixer_rules?: FixerRules;
 }
@@ -91,6 +93,7 @@ export interface Track {
 	censorship: CensorshipStatus;
 	lyrics: LyricsStatus;
 	needs_attention: number; // 0 or 1
+	manually_checked: number; // 0 or 1 (100% verified by user)
 	notes: string | null;
 	created_at: string;
 	updated_at: string;
@@ -113,6 +116,7 @@ export interface CollectionStats {
 	synced_lyrics_count: number;
 	unsynced_lyrics_count: number;
 	plain_lyrics_count: number;
+	checked_tracks_count?: number;
 	total_needs_attention: number;
 	health_score: number; // 0 - 100%
 }

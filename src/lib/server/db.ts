@@ -61,6 +61,7 @@ db.exec(`
 		censorship TEXT NOT NULL DEFAULT 'explicit',
 		lyrics TEXT NOT NULL DEFAULT 'none',
 		needs_attention INTEGER NOT NULL DEFAULT 0,
+		manually_checked INTEGER NOT NULL DEFAULT 0,
 		notes TEXT,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -79,6 +80,17 @@ try {
 	db.exec(`ALTER TABLE albums ADD COLUMN fixer_rules TEXT;`);
 } catch {
 	// Column already exists
+}
+try {
+	db.exec(`ALTER TABLE tracks ADD COLUMN manually_checked INTEGER NOT NULL DEFAULT 0;`);
+} catch {
+	// Column already exists
+}
+
+try {
+	db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
+} catch {
+	// Index already exists
 }
 
 /**
@@ -207,7 +219,8 @@ export function getStats(): CollectionStats {
 			SUM(CASE WHEN lyrics = 'synced_lrc' THEN 1 ELSE 0 END) as synced_lyrics,
 			SUM(CASE WHEN lyrics = 'unsynced_lrc' THEN 1 ELSE 0 END) as unsynced_lyrics,
 			SUM(CASE WHEN lyrics = 'plain_txt' THEN 1 ELSE 0 END) as plain_lyrics,
-			SUM(CASE WHEN needs_attention = 1 THEN 1 ELSE 0 END) as needs_attention
+			SUM(CASE WHEN needs_attention = 1 THEN 1 ELSE 0 END) as needs_attention,
+			SUM(CASE WHEN manually_checked = 1 THEN 1 ELSE 0 END) as checked_tracks
 		FROM tracks
 	`).get() as {
 		bad_quality: number;
@@ -217,6 +230,7 @@ export function getStats(): CollectionStats {
 		unsynced_lyrics: number;
 		plain_lyrics: number;
 		needs_attention: number;
+		checked_tracks: number;
 	};
 
 	// Health score is percentage of tracks with NO issues
@@ -235,6 +249,7 @@ export function getStats(): CollectionStats {
 		synced_lyrics_count: issueCounts.synced_lyrics || 0,
 		unsynced_lyrics_count: issueCounts.unsynced_lyrics || 0,
 		plain_lyrics_count: issueCounts.plain_lyrics || 0,
+		checked_tracks_count: issueCounts.checked_tracks || 0,
 		total_needs_attention: issueCounts.needs_attention || 0,
 		health_score: healthScore
 	};
@@ -249,6 +264,7 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 	const effectiveLyrics = options?.lyrics || parsed.lyrics;
 	const effectiveNotLyrics = options?.notLyrics || parsed.notLyrics;
 	const effectiveQuality = options?.quality || parsed.quality;
+	const effectiveChecked = options?.manuallyChecked !== undefined ? options.manuallyChecked : parsed.manuallyChecked;
 	const effectiveText = options?.search !== undefined ? options.search : parsed.search;
 
 	let sql = `
@@ -257,11 +273,16 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 			COUNT(t.id) as track_count,
 			SUM(CASE WHEN t.quality_rating IN ('bad', 'needs_upgrade') THEN 1 ELSE 0 END) as bad_quality_count,
 			SUM(CASE WHEN t.censorship = 'censored' THEN 1 ELSE 0 END) as censored_count,
-			SUM(CASE WHEN t.lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics_count
+			SUM(CASE WHEN t.lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics_count,
+			SUM(CASE WHEN t.manually_checked = 1 THEN 1 ELSE 0 END) as checked_count
 	`;
 
 	const trackConditions: string[] = [];
 	const trackParams: (string | number)[] = [];
+
+	if (effectiveChecked !== undefined) {
+		trackConditions.push(`t2.manually_checked = ${effectiveChecked}`);
+	}
 
 	if (effectiveNotFormat) {
 		if (effectiveNotFormat === 'FLAC') {
@@ -348,6 +369,10 @@ export function getAlbums(searchQuery?: string, filter?: string, options?: Searc
 		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE lyrics = 'unsynced_lrc')`);
 	} else if (filter === 'all_good') {
 		conditions.push(`a.id NOT IN (SELECT album_id FROM tracks WHERE needs_attention = 1) AND a.id IN (SELECT album_id FROM tracks)`);
+	} else if (filter === 'unverified') {
+		conditions.push(`a.id IN (SELECT album_id FROM tracks WHERE manually_checked = 0)`);
+	} else if (filter === 'verified') {
+		conditions.push(`a.id NOT IN (SELECT album_id FROM tracks WHERE manually_checked = 0) AND a.id IN (SELECT album_id FROM tracks)`);
 	}
 
 	if (conditions.length > 0) {
@@ -381,6 +406,7 @@ export function searchVaultTracks(
 	const effectiveLyrics = filters?.lyrics || parsed.lyrics;
 	const effectiveNotLyrics = filters?.notLyrics || parsed.notLyrics;
 	const effectiveQuality = filters?.quality || parsed.quality;
+	const effectiveChecked = filters?.manuallyChecked !== undefined ? filters.manuallyChecked : parsed.manuallyChecked;
 	const effectiveText = filters?.search !== undefined ? filters.search : parsed.search;
 
 	let sql = `
@@ -401,6 +427,11 @@ export function searchVaultTracks(
 
 	const conditions: string[] = [];
 	const params: (string | number)[] = [];
+
+	if (effectiveChecked !== undefined) {
+		conditions.push("t.manually_checked = ?");
+		params.push(effectiveChecked);
+	}
 
 	if (effectiveNotFormat) {
 		if (effectiveNotFormat === 'FLAC') {
@@ -488,7 +519,8 @@ export function getAlbumById(id: number): { album: Album; tracks: Track[] } | nu
 			COUNT(t.id) as track_count,
 			SUM(CASE WHEN t.quality_rating IN ('bad', 'needs_upgrade') THEN 1 ELSE 0 END) as bad_quality_count,
 			SUM(CASE WHEN t.censorship = 'censored' THEN 1 ELSE 0 END) as censored_count,
-			SUM(CASE WHEN t.lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics_count
+			SUM(CASE WHEN t.lyrics = 'missing' THEN 1 ELSE 0 END) as missing_lyrics_count,
+			SUM(CASE WHEN t.manually_checked = 1 THEN 1 ELSE 0 END) as checked_count
 		FROM albums a
 		LEFT JOIN tracks t ON t.album_id = a.id
 		WHERE a.id = ?
@@ -533,6 +565,7 @@ export function createAlbum(
 		quality_rating?: QualityRating;
 		censorship?: CensorshipStatus;
 		lyrics?: LyricsStatus;
+		manually_checked?: number;
 		notes?: string | null;
 	}> = []
 ): number {
@@ -542,8 +575,8 @@ export function createAlbum(
 	`);
 
 	const insertTrack = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`);
 
 	const transaction = db.transaction(() => {
@@ -579,6 +612,7 @@ export function createAlbum(
 				censorship,
 				lyrics,
 				needsAtt,
+				t.manually_checked || 0,
 				t.notes?.trim() ?? null
 			);
 		}
@@ -655,6 +689,7 @@ export function updateTrack(
 		lyrics: LyricsStatus;
 		notes: string | null;
 		needs_attention: number;
+		manually_checked: number;
 	}>
 ): Track {
 	const current = db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as Track | undefined;
@@ -680,6 +715,7 @@ export function updateTrack(
 			censorship = ?,
 			lyrics = ?,
 			needs_attention = ?,
+			manually_checked = CASE WHEN ? = 1 THEN ? ELSE manually_checked END,
 			notes = CASE WHEN ? = 1 THEN ? ELSE notes END,
 			updated_at = datetime('now')
 		WHERE id = ?
@@ -696,6 +732,8 @@ export function updateTrack(
 		newCensorship,
 		newLyrics,
 		needsAttention,
+		data.manually_checked !== undefined ? 1 : 0,
+		data.manually_checked ?? 0,
 		data.notes !== undefined ? 1 : 0,
 		data.notes?.trim() ?? null,
 		id
@@ -711,6 +749,7 @@ export function batchUpdateAlbumTracks(
 		quality_rating: QualityRating;
 		censorship: CensorshipStatus;
 		lyrics: LyricsStatus;
+		manually_checked: number;
 	}>
 ): void {
 	const tracks = db.prepare('SELECT * FROM tracks WHERE album_id = ?').all(albumId) as Track[];
@@ -722,9 +761,13 @@ export function batchUpdateAlbumTracks(
 			censorship = ?,
 			lyrics = ?,
 			needs_attention = ?,
+			manually_checked = CASE WHEN ? = 1 THEN ? ELSE manually_checked END,
 			updated_at = datetime('now')
 		WHERE id = ?
 	`);
+
+	const hasChecked = updates.manually_checked !== undefined ? 1 : 0;
+	const checkedVal = updates.manually_checked ?? 0;
 
 	const transaction = db.transaction(() => {
 		for (const track of tracks) {
@@ -734,7 +777,7 @@ export function batchUpdateAlbumTracks(
 			const lyrics = updates.lyrics ?? track.lyrics;
 			const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
-			updateStmt.run(format, quality, censorship, lyrics, needsAtt, track.id);
+			updateStmt.run(format, quality, censorship, lyrics, needsAtt, hasChecked, checkedVal, track.id);
 		}
 	});
 
@@ -753,6 +796,7 @@ export function addTrackToAlbum(
 		quality_rating?: QualityRating;
 		censorship?: CensorshipStatus;
 		lyrics?: LyricsStatus;
+		manually_checked?: number;
 		notes?: string | null;
 	}
 ): number {
@@ -772,8 +816,8 @@ export function addTrackToAlbum(
 	const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
 	const result = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`).run(
 		albumId,
 		trackData.disc_number || 1,
@@ -786,6 +830,7 @@ export function addTrackToAlbum(
 		censorship,
 		lyrics,
 		needsAtt,
+		trackData.manually_checked ?? 0,
 		trackData.notes?.trim() ?? null
 	);
 
@@ -802,6 +847,7 @@ export function getIssuesTracks(params?: {
 	censorship?: string;
 	lyrics?: string;
 	search?: string;
+	manuallyChecked?: number;
 	limit?: number;
 	offset?: number;
 }): { tracks: Track[]; total: number } {
@@ -837,6 +883,15 @@ export function getIssuesTracks(params?: {
 		conditions.push('t.needs_attention = 1');
 	} else if (params?.issueType === 'good') {
 		conditions.push('t.needs_attention = 0');
+	} else if (params?.issueType === 'unverified') {
+		conditions.push('t.manually_checked = 0');
+	} else if (params?.issueType === 'verified') {
+		conditions.push('t.manually_checked = 1');
+	}
+
+	if (params?.manuallyChecked !== undefined) {
+		conditions.push('t.manually_checked = ?');
+		queryParams.push(params.manuallyChecked);
 	}
 
 	if (params?.format) {
