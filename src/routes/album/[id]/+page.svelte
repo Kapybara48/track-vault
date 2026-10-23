@@ -21,7 +21,13 @@
 		SlidersHorizontal,
 		Search,
 		X,
-		Tag
+		Tag,
+		FolderCheck,
+		Mic2,
+		Save,
+		Check,
+		FileText,
+		Sparkles
 	} from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
@@ -197,6 +203,86 @@
 
 	function handleTrackDeleted(id: number) {
 		tracks = tracks.filter(t => t.id !== id);
+	}
+
+	// Quick Lyrics Modal State
+	let selectedLyricsTrack = $state<Track | null>(null);
+	let lyricsModalLoading = $state(false);
+	let lyricsModalText = $state('');
+	let lyricsModalFilePath = $state<string | null>(null);
+	let lyricsModalSource = $state<'file' | 'db' | 'none'>('none');
+	let lyricsModalStatus = $state<LyricsStatus>('missing');
+	let lyricsModalSaving = $state(false);
+	let lyricsModalMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
+
+	async function openLyricsModal(track: Track) {
+		selectedLyricsTrack = track;
+		lyricsModalLoading = true;
+		lyricsModalText = '';
+		lyricsModalFilePath = null;
+		lyricsModalMessage = null;
+		lyricsModalStatus = track.lyrics;
+
+		try {
+			const res = await fetch(`/api/tracks/${track.id}/lyrics`);
+			const json = await res.json();
+			if (json.success) {
+				lyricsModalText = json.lyrics_text || '';
+				lyricsModalFilePath = json.companion_path || json.file_path || null;
+				lyricsModalSource = json.source;
+				lyricsModalStatus = json.status || track.lyrics;
+			}
+		} catch (err: any) {
+			lyricsModalMessage = { type: 'error', text: `Failed to load lyrics: ${err.message}` };
+		} finally {
+			lyricsModalLoading = false;
+		}
+	}
+
+	async function saveLyricsModal() {
+		if (!selectedLyricsTrack) return;
+		lyricsModalSaving = true;
+		lyricsModalMessage = null;
+
+		try {
+			const res = await fetch(`/api/tracks/${selectedLyricsTrack.id}/lyrics`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					lyrics_text: lyricsModalText,
+					status: lyricsModalStatus,
+					save_to_disk: true
+				})
+			});
+			const json = await res.json();
+			if (json.success) {
+				if (json.companion_path) {
+					lyricsModalFilePath = json.companion_path;
+				}
+				lyricsModalSource = json.saved_to_disk ? 'file' : 'db';
+				lyricsModalMessage = {
+					type: 'success',
+					text: json.saved_to_disk
+						? 'Saved lyrics to folder companion file and database!'
+						: 'Saved lyrics to database.'
+				};
+
+				// Update local track state
+				const updatedTrack = {
+					...selectedLyricsTrack,
+					lyrics: lyricsModalStatus,
+					lyrics_text: lyricsModalText,
+					needs_attention: json.track?.needs_attention ?? selectedLyricsTrack.needs_attention
+				};
+				handleTrackUpdated(updatedTrack);
+			} else {
+				lyricsModalMessage = { type: 'error', text: json.error || 'Failed to save lyrics' };
+			}
+		} catch (err: any) {
+			lyricsModalMessage = { type: 'error', text: `Error saving lyrics: ${err.message}` };
+		} finally {
+			lyricsModalSaving = false;
+		}
 	}
 
 	async function submitBatchUpdate() {
@@ -662,6 +748,7 @@
 								{track}
 								onTrackUpdated={handleTrackUpdated}
 								onTrackDeleted={handleTrackDeleted}
+								onOpenLyrics={openLyricsModal}
 							/>
 						{/each}
 					</div>
@@ -1201,6 +1288,136 @@
 				>
 					{isSavingFixerRules ? 'Saving...' : 'Save Fixer Rules'}
 				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Quick Lyrics File Viewer & Editor Modal -->
+{#if selectedLyricsTrack}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+		<div class="w-full max-w-2xl rounded-3xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl flex flex-col max-h-[90vh]">
+			<div class="flex items-center justify-between border-b border-neutral-800 pb-4 shrink-0">
+				<div class="flex items-center gap-2.5">
+					<div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+						<FileText class="h-5 w-5" />
+					</div>
+					<div>
+						<h3 class="text-base font-bold text-white flex items-center gap-2">
+							Lyrics File Editor
+							<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
+								Track {selectedLyricsTrack.track_number}
+							</span>
+						</h3>
+						<p class="text-xs text-neutral-400 mt-0.5">
+							{selectedLyricsTrack.title} &bull; {selectedLyricsTrack.artist || album.artist}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => (selectedLyricsTrack = null)}
+					class="text-neutral-400 hover:text-white transition p-1"
+				>
+					<X class="h-5 w-5" />
+				</button>
+			</div>
+
+			<!-- Companion Folder File Indicator -->
+			<div class="mt-4 p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between gap-3 text-xs shrink-0">
+				<div class="flex items-center gap-2 min-w-0">
+					<FolderCheck class="h-4 w-4 {lyricsModalFilePath ? 'text-emerald-400' : 'text-neutral-500'} shrink-0" />
+					<span class="text-neutral-400 shrink-0">Song Folder File:</span>
+					{#if lyricsModalFilePath}
+						<code class="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-emerald-300 font-mono text-[11px] truncate max-w-md" title={lyricsModalFilePath}>
+							{lyricsModalFilePath}
+						</code>
+					{:else}
+						<span class="text-neutral-500 italic text-[11px]">
+							No companion file yet (will create .lrc in track folder on save)
+						</span>
+					{/if}
+				</div>
+
+				<a
+					href="/lrc-maker?trackId={selectedLyricsTrack.id}"
+					class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 text-xs font-medium transition shrink-0"
+				>
+					<Mic2 class="h-3 w-3" />
+					<span>Open LRC Studio</span>
+				</a>
+			</div>
+
+			<!-- Status Banner -->
+			{#if lyricsModalMessage}
+				<div class="mt-3 p-2.5 rounded-xl border text-xs flex items-center justify-between shrink-0 {lyricsModalMessage.type === 'success' ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300' : 'bg-rose-950/40 border-rose-800/60 text-rose-300'}">
+					<div class="flex items-center gap-2">
+						{#if lyricsModalMessage.type === 'success'}
+							<Check class="h-4 w-4 text-emerald-400 shrink-0" />
+						{:else}
+							<AlertTriangle class="h-4 w-4 text-rose-400 shrink-0" />
+						{/if}
+						<span>{lyricsModalMessage.text}</span>
+					</div>
+					<button type="button" onclick={() => (lyricsModalMessage = null)} class="text-neutral-400 hover:text-white text-xs">✕</button>
+				</div>
+			{/if}
+
+			<!-- Lyrics Editor Textarea -->
+			<div class="mt-4 flex-1 flex flex-col min-h-0">
+				<div class="flex items-center justify-between text-xs text-neutral-400 mb-2 shrink-0">
+					<span>Lyrics content (plain text or synced [mm:ss.xx] timestamps):</span>
+					<div class="flex items-center gap-2">
+						<span class="text-[11px] text-neutral-500">Lyrics Status:</span>
+						<select
+							bind:value={lyricsModalStatus}
+							class="rounded bg-neutral-950 border border-neutral-700 px-2 py-0.5 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500"
+						>
+							{#each LYRICS_OPTIONS as opt}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				{#if lyricsModalLoading}
+					<div class="flex-1 flex items-center justify-center p-8 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-500 text-xs">
+						Loading lyrics from song folder...
+					</div>
+				{:else}
+					<textarea
+						bind:value={lyricsModalText}
+						placeholder="Paste or write lyrics here..."
+						rows="12"
+						class="w-full flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-3.5 font-mono text-xs text-neutral-200 focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+					></textarea>
+				{/if}
+			</div>
+
+			<!-- Footer Actions -->
+			<div class="mt-4 flex items-center justify-between border-t border-neutral-800 pt-3 shrink-0">
+				<span class="text-[11px] text-neutral-500">
+					{lyricsModalText.split('\n').filter(l => l.trim()).length} lines &bull; Writes directly to disk & database
+				</span>
+
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onclick={() => (selectedLyricsTrack = null)}
+						class="rounded-xl bg-neutral-800 px-4 py-2 text-xs font-semibold text-neutral-300 hover:bg-neutral-700 transition"
+					>
+						Close
+					</button>
+					<button
+						type="button"
+						onclick={saveLyricsModal}
+						disabled={lyricsModalSaving || lyricsModalLoading}
+						class="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition shadow-md shadow-emerald-600/30 disabled:opacity-50"
+					>
+						<Save class="h-3.5 w-3.5" />
+						<span>{lyricsModalSaving ? 'Saving...' : 'Save to File & Vault'}</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>

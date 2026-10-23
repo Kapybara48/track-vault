@@ -17,12 +17,21 @@
 - **Lyrics Coverage Tracking & Studio**:
   - Track whether songs have synchronized time-coded **Synced (.lrc)** lyrics, **Plain text (.txt)**, or are **Missing lyrics**.
   - Flag instrumental tracks where vocals aren't needed.
+  - **Read & Write Directly in Song Folders**:
+    - Automatically discovers companion `.lrc` and `.txt` files in the exact same folder as the audio file.
+    - Quick Lyrics File Editor directly on the Album page for instant view and edits without navigating away.
+    - Non-destructive: audio files remain untouched, only companion lyric files are written.
   - **Interactive LRC Maker Studio (`/lrc-maker`)**:
     - Built-in audio player with Range-seeking server streaming or local drag-and-drop audio file loading.
     - 1-click **LRCLIB.net** integration to fetch plain lyrics or ready-to-use synced lyrics.
+    - **Active Song Time Auto-Focus & Auto-Scroll**: Highlights the active line matching current song playback time with a pulsating indicator and smoothly centers the view as the song plays.
     - Synchronize lyrics line-by-line using keyboard hotkeys (`Space` / `Enter`).
     - Millisecond fine-tuning (`+/- 0.1s`), step-back navigation, and real-time live karaoke preview.
-    - Save `.lrc` companion files directly to server disk, persist in SQLite database, download `.lrc`, or copy to clipboard.
+    - Save `.lrc` companion files directly to server disk in the song's folder, persist in SQLite database, download `.lrc`, or copy to clipboard.
+- **Sleek, Decluttered Navigation**:
+  - Clean primary desktop tabs: **Vault**, **Fixer**, **Scan**, and a **Tools** dropdown containing **LRC Maker Studio** and **Picard Tagger**.
+  - User Profile pill with direct access to Account Settings and Password Change.
+  - Streamlined 5-tab mobile bottom bar (`Vault`, `Fixer`, `Scan`, `LRC`, `Settings`).
 - **Local Music Library Scanner**:
   - Point Track Vault to your server's music library directory.
   - Automatically reads audio metadata (**FLAC, MP3, M4A, OGG, WAV, etc.**).
@@ -73,8 +82,8 @@ services:
     volumes:
       # Persistent SQLite database & album covers
       - ./data:/app/data
-      # Mount your existing music collection (read-only for safety)
-      - ${MUSIC_PATH:-./music}:/music:ro
+      # Mount your music collection (read-write for companion lyrics files)
+      - ${MUSIC_PATH:-./music}:/music
     depends_on:
       - picard
 
@@ -96,7 +105,7 @@ services:
       - ${MUSIC_PATH:-./music}:/music
 ```
 
-> **Note**: Track Vault mounts your library as `:ro` (read-only) for safety. Picard mounts it read-write so it can write tags and album art directly into your audio files.
+> **Note**: Both Track Vault and Picard have write access to `/music`. Track Vault strictly modifies companion `.lrc` and `.txt` files when requested and never alters audio binaries. Picard manages audio tags and AcoustID fingerprints.
 
 ### 3. Start Containers
 ```bash

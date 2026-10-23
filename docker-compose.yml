@@ -17,8 +17,8 @@ services:
       - PICARD_URL=${PICARD_URL:-http://localhost:5800}
     volumes:
       - ./data:/app/data
-      # Mount your existing music library folder here (read-only for maximum safety)
-      - ${MUSIC_PATH:-./music}:/music:ro
+      # Mount your existing music library folder here (read-write for companion lyrics files)
+      - ${MUSIC_PATH:-./music}:/music
 
   picard:
     image: jlesage/musicbrainz-picard:latest

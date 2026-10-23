@@ -26,7 +26,9 @@
 		Sparkles,
 		Eye,
 		Edit3,
-		Volume2
+		Volume2,
+		FolderCheck,
+		LocateFixed
 	} from '@lucide/svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -53,6 +55,9 @@
 	let rawLyricsText = $state('');
 	let lyricLines = $state<LyricLine[]>([]);
 	let activeLineIndex = $state(0);
+	let autoFollowEnabled = $state(true);
+	let companionFilePath = $state<string | null>(data.companionPath || null);
+	let isReloadingFromDisk = $state(false);
 
 	// Track Info State (can be edited if standalone)
 	let trackTitle = $state(data.track?.title || '');
@@ -306,8 +311,8 @@
 		});
 	}
 
-	// Karaoke Preview: Compute current active singing line based on audio time
-	let karaokeActiveIndex = $derived(() => {
+	// Current Active Singing/Playback Line derived from audio currentTime
+	let currentPlaybackLineIndex = $derived.by(() => {
 		let idx = -1;
 		for (let i = 0; i < lyricLines.length; i++) {
 			const line = lyricLines[i];
@@ -317,6 +322,46 @@
 		}
 		return idx;
 	});
+
+	// Auto-scroll to center on the currently playing line
+	$effect(() => {
+		if (isPlaying && autoFollowEnabled && currentPlaybackLineIndex >= 0 && currentMode === 'sync') {
+			const targetEl = document.getElementById(`line-${currentPlaybackLineIndex}`);
+			if (targetEl && linesContainerEl) {
+				targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		}
+	});
+
+	// Reload lyrics from companion file on disk or database
+	async function reloadFromDisk() {
+		if (!data.track) return;
+		isReloadingFromDisk = true;
+		try {
+			const res = await fetch(`/api/tracks/${data.track.id}/lyrics`);
+			const json = await res.json();
+			if (json.success && json.lyrics_text) {
+				rawLyricsText = json.lyrics_text;
+				lyricLines = parseLyrics(json.lyrics_text);
+				if (json.companion_path) {
+					companionFilePath = json.companion_path;
+				}
+				saveStatus = {
+					type: 'success',
+					message: `Reloaded lyrics from folder (${json.source === 'file' ? 'Companion File' : 'Database'})`
+				};
+			} else {
+				saveStatus = {
+					type: 'info',
+					message: 'No lyrics found on disk or database for this track'
+				};
+			}
+		} catch (err: any) {
+			saveStatus = { type: 'error', message: `Failed to reload lyrics: ${err.message}` };
+		} finally {
+			isReloadingFromDisk = false;
+		}
+	}
 
 	// Global Keyboard Hotkeys
 	function handleKeyDown(e: KeyboardEvent) {
@@ -716,6 +761,36 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Folder Companion Lyrics File Info -->
+			{#if data.track}
+				<div class="mt-3 pt-3 border-t border-neutral-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+					<div class="flex items-center gap-2 min-w-0">
+						<FolderCheck class="w-4 h-4 {companionFilePath ? 'text-emerald-400' : 'text-neutral-500'} shrink-0" />
+						<span class="text-neutral-400 shrink-0">Song Folder File:</span>
+						{#if companionFilePath}
+							<code class="px-2 py-0.5 rounded bg-neutral-950 border border-neutral-800 text-emerald-300 font-mono text-[11px] truncate max-w-md" title={companionFilePath}>
+								{companionFilePath}
+							</code>
+						{:else}
+							<span class="text-neutral-500 italic text-[11px]">
+								No companion .lrc found on disk (will be created in song folder on save)
+							</span>
+						{/if}
+					</div>
+
+					<button
+						type="button"
+						onclick={reloadFromDisk}
+						disabled={isReloadingFromDisk}
+						class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition text-xs font-medium cursor-pointer disabled:opacity-50 ml-auto"
+						title="Reload latest lyrics from song folder"
+					>
+						<RotateCcw class="w-3 h-3 text-neutral-400 {isReloadingFromDisk ? 'animate-spin' : ''}" />
+						<span>Reload from File</span>
+					</button>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Audio Player Toolbar -->
@@ -884,6 +959,18 @@
 								<ChevronUp class="w-4 h-4" />
 								<span>Step Back</span>
 							</button>
+
+							<button
+								type="button"
+								onclick={() => (autoFollowEnabled = !autoFollowEnabled)}
+								class="px-2.5 py-2 rounded-lg border text-xs font-medium transition cursor-pointer flex items-center gap-1.5 {autoFollowEnabled
+									? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+									: 'bg-neutral-800 border-neutral-700 text-neutral-400'}"
+								title="Automatically center the currently playing lyric line during playback"
+							>
+								<LocateFixed class="w-3.5 h-3.5 {autoFollowEnabled ? 'text-emerald-400' : 'text-neutral-500'}" />
+								<span>Auto-Follow: {autoFollowEnabled ? 'ON' : 'OFF'}</span>
+							</button>
 						</div>
 
 						<div class="text-xs text-neutral-400 flex items-center gap-3">
@@ -899,20 +986,26 @@
 						class="flex-1 overflow-y-auto p-4 space-y-2 max-h-[500px]"
 					>
 						{#each lyricLines as line, i}
+							{@const isCurrentPlaying = currentPlaybackLineIndex === i}
+							{@const isSyncTarget = i === activeLineIndex}
 							<div
 								id={`line-${i}`}
-								class="flex items-center gap-3 p-2.5 rounded-xl border transition {i === activeLineIndex
-									? 'bg-emerald-950/30 border-emerald-500/50 ring-1 ring-emerald-500/20 shadow-md'
+								class="flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 {isCurrentPlaying
+									? 'bg-emerald-950/70 border-emerald-500/80 ring-2 ring-emerald-500/40 shadow-lg scale-[1.01]'
+									: isSyncTarget
+									? 'bg-neutral-900 border-indigo-500/50 ring-1 ring-indigo-500/30'
 									: line.time !== null
 									? 'bg-neutral-950/60 border-neutral-800/80 hover:border-neutral-700'
 									: 'bg-neutral-950/30 border-neutral-850 opacity-80'}"
 							>
-								<!-- Line Index / Arrow -->
-								<div class="w-6 text-center text-[11px] font-mono text-neutral-500 shrink-0">
-									{#if i === activeLineIndex}
-										<span class="text-emerald-400 font-bold">&rarr;</span>
+								<!-- Line Index / Arrow / Active Playing Indicator -->
+								<div class="w-6 text-center text-[11px] font-mono shrink-0 flex items-center justify-center">
+									{#if isCurrentPlaying}
+										<span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50" title="Currently Playing"></span>
+									{:else if isSyncTarget}
+										<span class="text-indigo-400 font-bold">&rarr;</span>
 									{:else}
-										{i + 1}
+										<span class="text-neutral-500">{i + 1}</span>
 									{/if}
 								</div>
 
@@ -922,7 +1015,9 @@
 										<button
 											type="button"
 											onclick={() => seekTo(line.time!)}
-											class="px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-1.5"
+											class="px-2.5 py-1 rounded border font-mono text-xs transition cursor-pointer flex items-center gap-1.5 {isCurrentPlaying
+												? 'bg-emerald-500 text-black font-bold border-emerald-400 shadow-md'
+												: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'}"
 											title="Click to seek audio to this timestamp"
 										>
 											<Play class="w-2.5 h-2.5 fill-current" />
@@ -948,8 +1043,9 @@
 										type="text"
 										bind:value={line.text}
 										onfocus={() => (activeLineIndex = i)}
-										class="w-full bg-transparent border-0 text-sm focus:outline-none focus:ring-0 px-1 {i ===
-										activeLineIndex
+										class="w-full bg-transparent border-0 text-sm focus:outline-none focus:ring-0 px-1 transition-all {isCurrentPlaying
+											? 'text-emerald-200 font-bold text-base'
+											: isSyncTarget
 											? 'text-white font-semibold'
 											: line.time !== null
 											? 'text-neutral-200'
@@ -997,11 +1093,11 @@
 				<div class="bg-neutral-900 rounded-xl border border-neutral-800 flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[460px] overflow-hidden relative">
 					<div class="max-w-2xl w-full space-y-6">
 						{#each lyricLines as line, i}
-							{#if Math.abs(i - karaokeActiveIndex()) <= 2}
+							{#if Math.abs(i - currentPlaybackLineIndex) <= 2}
 								<div
-									class="transition-all duration-300 transform {i === karaokeActiveIndex()
+									class="transition-all duration-300 transform {i === currentPlaybackLineIndex
 										? 'text-2xl md:text-3xl font-extrabold text-emerald-400 scale-105 py-2'
-										: i < karaokeActiveIndex()
+										: i < currentPlaybackLineIndex
 										? 'text-sm md:text-base text-neutral-500'
 										: 'text-sm md:text-base text-neutral-400'}"
 								>
@@ -1010,7 +1106,7 @@
 							{/if}
 						{/each}
 
-						{#if karaokeActiveIndex() === -1}
+						{#if currentPlaybackLineIndex === -1}
 							<div class="text-neutral-500 italic text-sm">
 								Press Play to start karaoke preview...
 							</div>

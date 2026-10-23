@@ -3,6 +3,7 @@ import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getTrackById, saveTrackLyrics } from '$lib/server/db.js';
+import { findCompanionLyricsFile, resolveTrackFilePath } from '$lib/server/scanner.js';
 import type { LyricsStatus } from '$lib/types/index.js';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -19,32 +20,24 @@ export const GET: RequestHandler = async ({ params }) => {
 	let lyricsText = track.lyrics_text || '';
 	let companionPath: string | null = null;
 	let hasCompanion = false;
+	let isWritable = true;
+	const audioPath = resolveTrackFilePath(track);
 
-	// If no lyrics in DB, attempt reading companion .lrc or .txt from disk
-	if (track.file_path && fs.existsSync(track.file_path)) {
-		const dir = path.dirname(track.file_path);
-		const base = path.basename(track.file_path, path.extname(track.file_path));
-		const lrcPath = path.join(dir, `${base}.lrc`);
-		const txtPath = path.join(dir, `${base}.txt`);
+	// 1. Read directly from the song's folder if companion file exists on disk
+	if (audioPath) {
+		const companion = findCompanionLyricsFile(audioPath, track.title);
+		if (companion) {
+			companionPath = companion.filePath;
+			hasCompanion = true;
+			lyricsText = companion.content;
+			isWritable = companion.isWritable;
 
-		if (fs.existsSync(lrcPath)) {
-			companionPath = lrcPath;
-			hasCompanion = true;
-			if (!lyricsText) {
+			// Keep DB in sync with disk content
+			if (track.lyrics_text !== companion.content) {
 				try {
-					lyricsText = fs.readFileSync(lrcPath, 'utf-8');
+					saveTrackLyrics(trackId, companion.content, companion.type);
 				} catch {
-					// Ignore read errors
-				}
-			}
-		} else if (fs.existsSync(txtPath)) {
-			companionPath = txtPath;
-			hasCompanion = true;
-			if (!lyricsText) {
-				try {
-					lyricsText = fs.readFileSync(txtPath, 'utf-8');
-				} catch {
-					// Ignore read errors
+					// Ignore
 				}
 			}
 		}
@@ -56,7 +49,9 @@ export const GET: RequestHandler = async ({ params }) => {
 		lyrics_status: track.lyrics,
 		companion_path: companionPath,
 		has_companion: hasCompanion,
-		has_audio_file: !!(track.file_path && fs.existsSync(track.file_path))
+		is_writable: isWritable,
+		has_audio_file: !!audioPath,
+		file_path: audioPath || track.file_path
 	});
 };
 
@@ -84,25 +79,32 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	}
 
 	const lyricsText = typeof body.lyrics_text === 'string' ? body.lyrics_text : '';
-	const status: LyricsStatus = body.status || 'synced_lrc';
-
-	// 1. Save to SQLite database
-	let updatedTrack;
-	try {
-		updatedTrack = saveTrackLyrics(trackId, lyricsText, status);
-	} catch (err: any) {
-		return json({ error: `Database error: ${err.message}` }, { status: 500 });
+	
+	// Auto-detect status if not specified or verify synced vs plain
+	let status: LyricsStatus = body.status || 'synced_lrc';
+	if (!body.status) {
+		const hasTimestamps = /\[\d{1,2}:\d{2}/.test(lyricsText);
+		status = hasTimestamps ? 'synced_lrc' : 'plain_txt';
 	}
 
-	// 2. Attempt saving companion .lrc to disk if requested and file_path exists
+	// 1. Save directly to the song's folder file on disk
 	let savedToDisk = false;
 	let diskError: string | null = null;
 	let diskPath: string | null = null;
+	const audioPath = resolveTrackFilePath(track);
 
-	if (body.save_to_disk && track.file_path && fs.existsSync(track.file_path)) {
-		const dir = path.dirname(track.file_path);
-		const base = path.basename(track.file_path, path.extname(track.file_path));
-		diskPath = path.join(dir, `${base}.lrc`);
+	if (audioPath) {
+		const dir = path.dirname(audioPath);
+		
+		// Check if companion file already exists
+		const existingCompanion = findCompanionLyricsFile(audioPath, track.title);
+		if (existingCompanion) {
+			diskPath = existingCompanion.filePath;
+		} else {
+			const base = path.basename(audioPath, path.extname(audioPath));
+			const ext = status === 'synced_lrc' ? '.lrc' : '.txt';
+			diskPath = path.join(dir, `${base}${ext}`);
+		}
 
 		try {
 			fs.writeFileSync(diskPath, lyricsText, 'utf-8');
@@ -113,6 +115,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
 					? 'Music directory is mounted read-only (:ro). Synced lyrics saved to Track Vault database only.'
 					: `Could not write to disk: ${err.message}`;
 		}
+	}
+
+	// 2. Save to SQLite database
+	let updatedTrack;
+	try {
+		updatedTrack = saveTrackLyrics(trackId, lyricsText, status);
+	} catch (err: any) {
+		return json({ error: `Database error: ${err.message}` }, { status: 500 });
 	}
 
 	return json({

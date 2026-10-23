@@ -178,6 +178,7 @@ export interface ScannedTrack {
 	has_lrc_file: boolean;
 	has_txt_file: boolean;
 	has_embedded_lyrics?: boolean;
+	lyrics_content?: string | null;
 	musicbrainz_album_id: string | null;
 	musicbrainz_track_id: string | null;
 	musicbrainz_artist_id: string | null;

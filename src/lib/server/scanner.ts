@@ -38,6 +38,36 @@ export function isPathWithin(targetPath: string, rootPath: string): boolean {
 }
 
 /**
+ * Robustly resolve track audio file path across host and Docker container mount environments
+ */
+export function resolveTrackFilePath(track: { id?: number; file_path?: string | null; notes?: string | null }): string | null {
+	if (track.file_path && fs.existsSync(track.file_path)) {
+		return track.file_path;
+	}
+
+	const musicDir = getMusicDirectory();
+
+	// If track.file_path has a path from host or container mismatch
+	if (track.file_path) {
+		const musicIdx = track.file_path.indexOf('/music/');
+		if (musicIdx !== -1) {
+			const subPath = track.file_path.slice(musicIdx + '/music/'.length);
+			const candidate = path.join(musicDir, subPath);
+			if (fs.existsSync(candidate)) return candidate;
+		}
+	}
+
+	// Fallback: check if notes contain folder/filename information from previous imports
+	if (track.notes?.startsWith('Imported from: ')) {
+		const filename = track.notes.replace('Imported from: ', '').trim();
+		const directPath = path.join(musicDir, filename);
+		if (fs.existsSync(directPath)) return directPath;
+	}
+
+	return null;
+}
+
+/**
  * Determine audio format and quality rating based on metadata
  */
 export function detectFormatAndQuality(
@@ -117,29 +147,154 @@ export function detectFormatAndQuality(
 	return { format: 'OTHER', quality: 'acceptable' };
 }
 
+export interface CompanionLyricsResult {
+	filePath: string;
+	fileName: string;
+	ext: string;
+	type: LyricsStatus;
+	content: string;
+	isWritable: boolean;
+}
+
+/**
+ * Searches the directory of an audio file for matching companion .lrc or .txt files.
+ * Handles exact name matching, case-insensitivity (.LRC / .lrc), track number padding variations
+ * (e.g., '001 ... .lrc' alongside '01 ... .flac'), and title matching.
+ */
+export function findCompanionLyricsFile(
+	audioFilePath: string,
+	trackTitle?: string
+): CompanionLyricsResult | null {
+	try {
+		const dir = path.dirname(audioFilePath);
+		if (!fs.existsSync(dir)) return null;
+
+		const audioBase = path.basename(audioFilePath, path.extname(audioFilePath));
+		const audioExt = path.extname(audioFilePath).toLowerCase();
+
+		// Read all files in folder
+		const files = fs.readdirSync(dir);
+
+		// 1. Direct exact base match (.lrc first, then .txt)
+		for (const targetExt of ['.lrc', '.txt']) {
+			const candidate = files.find(
+				(f) =>
+					f.toLowerCase() === `${audioBase.toLowerCase()}${targetExt}` &&
+					f.toLowerCase() !== `${audioBase.toLowerCase()}${audioExt}`
+			);
+			if (candidate) {
+				const fullPath = path.join(dir, candidate);
+				try {
+					const content = fs.readFileSync(fullPath, 'utf-8');
+					const ext = path.extname(candidate).toLowerCase();
+					const hasTimestamps = /\[\d{1,2}:\d{2}/.test(content);
+					let isWritable = true;
+					try {
+						fs.accessSync(fullPath, fs.constants.W_OK);
+					} catch {
+						isWritable = false;
+					}
+					return {
+						filePath: fullPath,
+						fileName: candidate,
+						ext,
+						type: ext === '.lrc' || hasTimestamps ? 'synced_lrc' : 'plain_txt',
+						content,
+						isWritable
+					};
+				} catch {
+					// Continue to next candidate
+				}
+			}
+		}
+
+		// 2. Normalized track-number / padding variations (e.g. 01 vs 001 vs 1)
+		const matchDigits = audioBase.match(/^(\d+)\s*[-._ ]\s*(.*)$/);
+		const trackNum = matchDigits ? parseInt(matchDigits[1], 10) : null;
+		const trackRest = matchDigits ? matchDigits[2].trim().toLowerCase() : audioBase.toLowerCase();
+
+		for (const f of files) {
+			const fExt = path.extname(f).toLowerCase();
+			if (fExt !== '.lrc' && fExt !== '.txt') continue;
+
+			const fBase = path.basename(f, fExt);
+			const fDigitsMatch = fBase.match(/^(\d+)\s*[-._ ]\s*(.*)$/);
+			const fNum = fDigitsMatch ? parseInt(fDigitsMatch[1], 10) : null;
+			const fRest = fDigitsMatch ? fDigitsMatch[2].trim().toLowerCase() : fBase.toLowerCase();
+
+			let isMatch = false;
+
+			// If both have track numbers and they match numerically, and title/rest matches
+			if (trackNum !== null && fNum !== null && trackNum === fNum) {
+				if (!trackRest || !fRest || trackRest === fRest || fRest.includes(trackRest) || trackRest.includes(fRest)) {
+					isMatch = true;
+				}
+			}
+
+			// If title is provided, check if filename matches title
+			if (!isMatch && trackTitle && trackTitle.trim().length > 3) {
+				const normTitle = trackTitle.trim().toLowerCase();
+				if (fBase.toLowerCase().includes(normTitle)) {
+					isMatch = true;
+				}
+			}
+
+			if (isMatch) {
+				const fullPath = path.join(dir, f);
+				try {
+					const content = fs.readFileSync(fullPath, 'utf-8');
+					const hasTimestamps = /\[\d{1,2}:\d{2}/.test(content);
+					let isWritable = true;
+					try {
+						fs.accessSync(fullPath, fs.constants.W_OK);
+					} catch {
+						isWritable = false;
+					}
+					return {
+						filePath: fullPath,
+						fileName: f,
+						ext: fExt,
+						type: fExt === '.lrc' || hasTimestamps ? 'synced_lrc' : 'plain_txt',
+						content,
+						isWritable
+					};
+				} catch {
+					// Continue
+				}
+			}
+		}
+	} catch (err) {
+		console.warn('Error finding companion lyrics file:', err);
+	}
+
+	return null;
+}
+
 /**
  * Detect lyrics: checks companion .lrc / .txt files in same directory, or embedded lyrics tags
  */
-export function detectLyrics(filePath: string, embeddedLyrics?: any): {
+export function detectLyrics(
+	filePath: string,
+	embeddedLyrics?: any,
+	trackTitle?: string
+): {
 	status: LyricsStatus;
 	hasLrc: boolean;
 	hasTxt: boolean;
 	hasEmbedded: boolean;
+	lyricsContent?: string;
+	companionPath?: string;
 } {
-	const dir = path.dirname(filePath);
-	const baseNameWithoutExt = path.basename(filePath, path.extname(filePath));
-
-	const lrcPath = path.join(dir, `${baseNameWithoutExt}.lrc`);
-	const txtPath = path.join(dir, `${baseNameWithoutExt}.txt`);
-
-	const hasLrc = fs.existsSync(lrcPath);
-	if (hasLrc) {
-		return { status: 'synced_lrc', hasLrc: true, hasTxt: false, hasEmbedded: false };
-	}
-
-	const hasTxt = fs.existsSync(txtPath);
-	if (hasTxt) {
-		return { status: 'plain_txt', hasLrc: false, hasTxt: true, hasEmbedded: false };
+	const companion = findCompanionLyricsFile(filePath, trackTitle);
+	if (companion) {
+		return {
+			status: companion.type,
+			hasLrc: companion.ext === '.lrc',
+			hasTxt: companion.ext === '.txt',
+			hasEmbedded: false,
+			lyricsContent: companion.content,
+			companionPath: companion.filePath
+		};
 	}
 
 	// Check embedded lyrics
@@ -151,13 +306,13 @@ export function detectLyrics(filePath: string, embeddedLyrics?: any): {
 			: embeddedLyrics.text || '';
 
 		if (text.trim().length > 0) {
-			// Check if timestamped like [01:23.45]
-			const hasTimestamps = /\[\d{2}:\d{2}/.test(text);
+			const hasTimestamps = /\[\d{1,2}:\d{2}/.test(text);
 			return {
 				status: hasTimestamps ? 'synced_lrc' : 'plain_txt',
 				hasLrc: false,
 				hasTxt: false,
-				hasEmbedded: true
+				hasEmbedded: true,
+				lyricsContent: text
 			};
 		}
 	}
@@ -278,7 +433,7 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 			format.sampleRate
 		);
 
-		const { status: lyricsStatus, hasLrc, hasTxt, hasEmbedded } = detectLyrics(filePath, common.lyrics);
+		const { status: lyricsStatus, hasLrc, hasTxt, hasEmbedded, lyricsContent } = detectLyrics(filePath, common.lyrics, title);
 		const censorshipStatus = detectCensorship(title, common);
 
 		// MusicBrainz tags
@@ -310,6 +465,7 @@ export async function scanAudioFile(filePath: string): Promise<ScannedTrack | nu
 			has_lrc_file: hasLrc,
 			has_txt_file: hasTxt,
 			has_embedded_lyrics: hasEmbedded,
+			lyrics_content: lyricsContent || null,
 			musicbrainz_album_id: mbAlbumId,
 			musicbrainz_track_id: mbTrackId,
 			musicbrainz_artist_id: mbArtistId,
@@ -530,6 +686,7 @@ export async function importScannedAlbum(
 		censorship: t.censorship,
 		lyrics: t.lyrics,
 		file_path: t.file_path,
+		lyrics_text: t.lyrics_content ?? null,
 		notes: `Imported from: ${path.basename(t.file_path)}`
 	}));
 

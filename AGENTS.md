@@ -73,8 +73,18 @@ This document preserves persistent context, architectural conventions, recent ch
     - Added audio streaming endpoint `GET /api/tracks/[id]/audio` with HTTP 206 Partial Content (Range byte seeking).
     - Added lyrics endpoint `GET / POST /api/tracks/[id]/lyrics` supporting database persistence and companion `.lrc` file saving.
     - Added LRCLIB proxy endpoint `GET /api/lyrics/search` for 1-click lyric lookups from lrclib.net.
-    - Created studio UI (`src/routes/lrc-maker/+page.svelte`) with playback speed controls (0.5x - 1.25x), hotkey stamping (`Space`/`Enter`), step-back, line fine-tuning (`+/- 0.1s`), and live karaoke preview.
     - Integrated deep shortcuts across Track Vault: Navbar desktop & mobile, `TrackRow` row action button, and The Fixer issues table.
+13. **Direct Song Folder Companion Lyrics Read & Write**:
+    - Made `/music` volume mount read-write (`:rw`) in `docker-compose.yml`.
+    - Added `findCompanionLyricsFile(filePath, title)` to `src/lib/server/scanner.ts` with multi-strategy discovery (exact matches, case insensitivity, zero-padded track numbers `001` vs `01`, and title-based matches).
+    - Added startup database migration backfill resolving `file_path` and `lyrics_text` for existing library tracks without data loss.
+    - Updated `GET /api/tracks/[id]/lyrics` to read companion `.lrc` and `.txt` files directly from disk as the source of truth, and `POST /api/tracks/[id]/lyrics` to write edits directly back into the song's folder on disk.
+    - Added cross-environment `resolveTrackFilePath()` in `scanner.ts` reconciling host and Docker container `/music` path mount differences.
+    - Added Quick Lyrics File Editor Modal in `src/routes/album/[id]/+page.svelte` and quick trigger in `TrackRow.svelte`.
+14. **Playback Song Time Line Focus & Navbar Declutter**:
+    - In `src/routes/lrc-maker/+page.svelte`, added reactive `currentPlaybackLineIndex` derived from audio `currentTime` and an auto-scroll effect smoothly centering the active singing line during playback.
+    - Added visual active line highlighting (emerald pulsating badge, glowing ring, text elevation) and an `Auto-Follow: ON/OFF` toggle.
+    - Redesigned `src/lib/components/Navbar.svelte`: consolidated secondary studio links into a clean `Tools` dropdown (`LRC Maker Studio` + `Picard Tagger`), removed duplicate settings tab on desktop, and streamlined mobile navigation to 5 clean, evenly-spaced tabs (`Vault`, `Fixer`, `Scan`, `LRC`, `Settings`).
 
 ---
 

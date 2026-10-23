@@ -4,16 +4,16 @@
 		Disc3,
 		TriangleAlert,
 		Plus,
-		Music,
 		Library,
-		Sparkles,
 		FolderSync,
 		LogOut,
 		User as UserIcon,
 		Settings as SettingsIcon,
 		Tag,
 		ExternalLink,
-		Mic
+		Mic,
+		Wrench,
+		ChevronDown
 	} from '@lucide/svelte';
 
 	interface Props {
@@ -30,6 +30,7 @@
 		picardUrl = 'http://localhost:5800'
 	}: Props = $props();
 
+	let showToolsDropdown = $state(false);
 	const currentPath = $derived(page.url.pathname);
 
 	async function handleLogout() {
@@ -46,37 +47,37 @@
 </script>
 
 <header class="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md">
-	<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+	<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
 		<!-- Brand Logo -->
 		<div class="flex items-center gap-6">
 			<a href="/" class="flex items-center gap-2.5 transition hover:opacity-90">
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 bg-neutral-900">
+				<div class="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 bg-neutral-900 shrink-0">
 					<img src="/favicon.svg" alt="Track Vault Icon" class="h-full w-full object-cover" />
 				</div>
 				<div>
-					<span class="text-lg font-black tracking-wider text-white">TRACK<span class="text-emerald-400">VAULT</span></span>
-					<span class="block text-[10px] font-medium uppercase tracking-widest text-emerald-400/80">Music Quality & Lyrics Tracker</span>
+					<span class="text-base sm:text-lg font-black tracking-wider text-white">TRACK<span class="text-emerald-400">VAULT</span></span>
+					<span class="hidden sm:block text-[9px] font-medium uppercase tracking-widest text-emerald-400/80">Music Quality & Lyrics Tracker</span>
 				</div>
 			</a>
 
-			<!-- Navigation Links -->
-			<nav class="hidden md:flex items-center gap-1.5 ml-4">
+			<!-- Desktop Primary Nav Links -->
+			<nav class="hidden md:flex items-center gap-1 ml-2">
 				<a
 					href="/"
-					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath === '/' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath === '/' ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 				>
 					<Library class="h-4 w-4" />
-					Vault Albums
+					<span>Vault</span>
 				</a>
 
 				<a
 					href="/issues"
-					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/issues') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/issues') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 				>
 					<TriangleAlert class="h-4 w-4 {issuesCount > 0 ? 'text-amber-400' : 'text-neutral-400'}" />
-					Track Fixer
+					<span>Fixer</span>
 					{#if issuesCount > 0}
-						<span class="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300 border border-amber-500/40">
+						<span class="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[11px] font-semibold text-amber-300 border border-amber-500/40">
 							{issuesCount}
 						</span>
 					{/if}
@@ -84,61 +85,89 @@
 
 				<a
 					href="/scan"
-					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/scan') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition {currentPath.startsWith('/scan') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 				>
 					<FolderSync class="h-4 w-4 text-emerald-400" />
-					Scan Library
+					<span>Scan</span>
 				</a>
 
-				<a
-					href="/lrc-maker"
-					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
-				>
-					<Mic class="h-4 w-4 text-emerald-400" />
-					LRC Maker
-				</a>
+				<!-- Tools Dropdown (LRC Maker Studio & Picard Tagger) -->
+				<div class="relative">
+					<button
+						type="button"
+						onclick={() => (showToolsDropdown = !showToolsDropdown)}
+						class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition cursor-pointer {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+					>
+						<Wrench class="h-4 w-4" />
+						<span>Tools</span>
+						<ChevronDown class="h-3 w-3 text-neutral-500 transition-transform {showToolsDropdown ? 'rotate-180' : ''}" />
+					</button>
 
-				<a
-					href="/settings"
-					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/settings') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
-				>
-					<SettingsIcon class="h-4 w-4 text-emerald-400" />
-					Settings
-				</a>
+					{#if showToolsDropdown}
+						<!-- Click backdrop -->
+						<div
+							class="fixed inset-0 z-40"
+							onclick={() => (showToolsDropdown = false)}
+						></div>
+
+						<div class="absolute left-0 top-full mt-2 z-50 w-60 rounded-2xl border border-neutral-800 bg-neutral-900 p-2 shadow-2xl space-y-1 animate-in fade-in zoom-in-95 duration-100">
+							<a
+								href="/lrc-maker"
+								onclick={() => (showToolsDropdown = false)}
+								class="flex items-center gap-3 rounded-xl p-2.5 text-xs transition {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-500/15 text-emerald-300' : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'}"
+							>
+								<div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
+									<Mic class="h-4 w-4" />
+								</div>
+								<div>
+									<div class="font-bold text-white">LRC Maker Studio</div>
+									<div class="text-[11px] text-neutral-400">Interactive sync & folder lyrics</div>
+								</div>
+							</a>
+
+							<a
+								href={picardUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={() => (showToolsDropdown = false)}
+								class="flex items-center justify-between rounded-xl p-2.5 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition"
+							>
+								<div class="flex items-center gap-3">
+									<div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 shrink-0">
+										<Tag class="h-4 w-4" />
+									</div>
+									<div>
+										<div class="font-bold text-white">Picard Tagger</div>
+										<div class="text-[11px] text-neutral-400">Acoustic Web GUI ({picardUrl})</div>
+									</div>
+								</div>
+								<ExternalLink class="h-3.5 w-3.5 text-neutral-500 mr-1 shrink-0" />
+							</a>
+						</div>
+					{/if}
+				</div>
 			</nav>
 		</div>
 
 		<!-- Action Buttons & User Menu -->
 		<div class="flex items-center gap-2 sm:gap-3">
 			<a
-				href={picardUrl}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-xs font-semibold text-neutral-300 hover:border-emerald-500/50 hover:text-white transition shadow-sm"
-				title="Open MusicBrainz Picard Web Tagger ({picardUrl})"
-			>
-				<Tag class="h-3.5 w-3.5 text-emerald-400" />
-				<span>Picard</span>
-				<ExternalLink class="h-3 w-3 text-neutral-500" />
-			</a>
-
-			<a
 				href="/add"
-				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-500 active:scale-95"
+				class="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-500 active:scale-95"
 			>
 				<Plus class="h-4 w-4" />
 				<span>Add Album</span>
 			</a>
 
 			{#if user && !authDisabled}
-				<div class="flex items-center gap-2 pl-2 border-l border-neutral-800">
+				<div class="flex items-center gap-1.5 pl-2 border-l border-neutral-800">
 					<a
 						href="/settings"
-						class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5 hover:border-emerald-600/50 hover:text-white transition"
+						class="flex items-center gap-1.5 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5 hover:border-emerald-600/50 hover:text-white transition"
 						title="Account Settings ({user.username})"
 					>
-						<UserIcon class="h-3.5 w-3.5 text-emerald-400" />
-						<span class="truncate max-w-[100px]">{user.username}</span>
+						<UserIcon class="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+						<span class="truncate max-w-[80px] sm:max-w-[120px]">{user.username}</span>
 					</a>
 
 					<button
@@ -154,57 +183,53 @@
 		</div>
 	</div>
 
-	<!-- Mobile Navigation Bar -->
-	<div class="flex md:hidden border-t border-neutral-800/80 px-4 py-2 justify-around bg-neutral-950">
+	<!-- Mobile Navigation Bottom Bar (Clean 5-tab bar) -->
+	<div class="grid grid-cols-5 md:hidden border-t border-neutral-800/80 px-2 py-2 bg-neutral-950 text-center">
 		<a
 			href="/"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath === '/' ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath === '/' ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
 		>
 			<Library class="h-4 w-4" />
-			Vault
+			<span>Vault</span>
 		</a>
-		<a
-			href="/scan"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/scan') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
-		>
-			<FolderSync class="h-4 w-4" />
-			Scan
-		</a>
-		<a
-			href={picardUrl}
-			target="_blank"
-			rel="noopener noreferrer"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium text-neutral-400 hover:text-emerald-400"
-			title="Picard Tagger"
-		>
-			<Tag class="h-4 w-4" />
-			Picard
-		</a>
-		<a
-			href="/lrc-maker"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/lrc-maker') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
-		>
-			<Mic class="h-4 w-4" />
-			LRC
-		</a>
+
 		<a
 			href="/issues"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/issues') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium relative {currentPath.startsWith('/issues') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
 		>
-			<TriangleAlert class="h-4 w-4 {issuesCount > 0 ? 'text-amber-400' : ''}" />
-			Fixer
-			{#if issuesCount > 0}
-				<span class="rounded-full bg-amber-500/20 px-1.5 text-[10px] text-amber-300 border border-amber-500/40">
-					{issuesCount}
-				</span>
-			{/if}
+			<div class="relative">
+				<TriangleAlert class="h-4 w-4 {issuesCount > 0 ? 'text-amber-400' : ''}" />
+				{#if issuesCount > 0}
+					<span class="absolute -top-1 -right-2 rounded-full bg-amber-500 text-black px-1 text-[9px] font-bold leading-none">
+						{issuesCount}
+					</span>
+				{/if}
+			</div>
+			<span>Fixer</span>
 		</a>
+
+		<a
+			href="/scan"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/scan') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
+		>
+			<FolderSync class="h-4 w-4" />
+			<span>Scan</span>
+		</a>
+
+		<a
+			href="/lrc-maker"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/lrc-maker') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
+		>
+			<Mic class="h-4 w-4" />
+			<span>LRC</span>
+		</a>
+
 		<a
 			href="/settings"
-			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/settings') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
+			class="flex flex-col items-center gap-1 py-1 text-[11px] font-medium {currentPath.startsWith('/settings') ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-neutral-200'}"
 		>
 			<SettingsIcon class="h-4 w-4" />
-			Settings
+			<span>Settings</span>
 		</a>
 	</div>
 </header>

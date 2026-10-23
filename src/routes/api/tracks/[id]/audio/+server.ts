@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getTrackById } from '$lib/server/db.js';
-import { getMusicDirectory, isPathWithin } from '$lib/server/scanner.js';
+import { getMusicDirectory, isPathWithin, resolveTrackFilePath } from '$lib/server/scanner.js';
 
 const MIME_MAP: Record<string, string> = {
 	'.flac': 'audio/flac',
@@ -19,24 +19,6 @@ const MIME_MAP: Record<string, string> = {
 	'.alac': 'audio/mp4',
 	'.wma': 'audio/x-ms-wma'
 };
-
-function resolveTrackFilePath(track: any): string | null {
-	if (track.file_path && fs.existsSync(track.file_path)) {
-		return track.file_path;
-	}
-
-	// Fallback: check if notes contain folder/filename information from previous imports
-	if (track.notes?.startsWith('Imported from: ')) {
-		const filename = track.notes.replace('Imported from: ', '').trim();
-		const musicDir = getMusicDirectory();
-
-		// Check common direct locations or search folder
-		const directPath = path.join(musicDir, filename);
-		if (fs.existsSync(directPath)) return directPath;
-	}
-
-	return null;
-}
 
 export const GET: RequestHandler = async ({ params, request }) => {
 	const trackId = parseInt(params.id, 10);

@@ -119,6 +119,45 @@ if (!columnExists('tracks', 'lyrics_text')) {
 
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
 
+// Backfill missing file_path for existing imported tracks
+try {
+	const nullTracks = db.prepare(`
+		SELECT t.id, t.notes as track_notes, a.notes as album_notes 
+		FROM tracks t 
+		JOIN albums a ON t.album_id = a.id 
+		WHERE t.file_path IS NULL
+	`).all() as Array<{ id: number; track_notes: string | null; album_notes: string | null }>;
+
+	if (nullTracks.length > 0) {
+		const updateTrackPath = db.prepare(`UPDATE tracks SET file_path = ? WHERE id = ?`);
+		const musicDir = process.env.MUSIC_DIR ? path.resolve(process.env.MUSIC_DIR) : path.resolve('./music');
+
+		for (const tr of nullTracks) {
+			if (!tr.track_notes || !tr.album_notes) continue;
+			if (!tr.track_notes.startsWith('Imported from: ') || !tr.album_notes.startsWith('Imported from local library folder: ')) continue;
+
+			const filename = tr.track_notes.replace('Imported from: ', '').trim();
+			const folderPath = tr.album_notes.replace('Imported from local library folder: ', '').trim();
+
+			// Test candidate paths on host/container
+			const candidates = [
+				path.join(folderPath, filename),
+				path.join(musicDir, folderPath.replace(/^\/music\/?/, ''), filename),
+				path.join(musicDir, filename)
+			];
+
+			for (const cand of candidates) {
+				if (fs.existsSync(cand)) {
+					updateTrackPath.run(cand, tr.id);
+					break;
+				}
+			}
+		}
+	}
+} catch (err) {
+	console.warn('Track path backfill notice:', err);
+}
+
 /**
  * Helper to determine if a track needs attention according to album or global fixer rules
  */

@@ -18,7 +18,8 @@
 		Clock,
 		Mic2,
 		Sparkles,
-		Check
+		Check,
+		AlignLeft
 	} from '@lucide/svelte';
 	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 
@@ -26,9 +27,10 @@
 		track: Track;
 		onTrackUpdated?: (updated: Track) => void;
 		onTrackDeleted?: (id: number) => void;
+		onOpenLyrics?: (track: Track) => void;
 	}
 
-	let { track, onTrackUpdated, onTrackDeleted }: Props = $props();
+	let { track, onTrackUpdated, onTrackDeleted, onOpenLyrics }: Props = $props();
 
 	let isUpdating = $state(false);
 	let showNotes = $state(false);
@@ -197,6 +199,17 @@
 						</option>
 					{/each}
 				</select>
+
+				{#if onOpenLyrics}
+					<button
+						type="button"
+						onclick={() => onOpenLyrics?.(track)}
+						class="rounded-lg border border-neutral-800 bg-neutral-900/80 p-1.5 text-neutral-400 hover:text-indigo-400 hover:border-indigo-500/40 hover:bg-indigo-950/20 transition flex items-center justify-center shrink-0 cursor-pointer"
+						title="Quick View & Edit Folder Lyrics (.lrc / .txt)"
+					>
+						<AlignLeft class="h-3 w-3" />
+					</button>
+				{/if}
 
 				<a
 					href="/lrc-maker?trackId={track.id}"

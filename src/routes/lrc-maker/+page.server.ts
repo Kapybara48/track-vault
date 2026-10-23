@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { PageServerLoad } from './$types.js';
 import { getTrackById } from '$lib/server/db.js';
+import { findCompanionLyricsFile, resolveTrackFilePath } from '$lib/server/scanner.js';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const trackIdParam = url.searchParams.get('trackId');
@@ -9,7 +10,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			track: null,
 			hasServerAudio: false,
-			existingLyrics: ''
+			existingLyrics: '',
+			companionPath: null
 		};
 	}
 
@@ -18,7 +20,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			track: null,
 			hasServerAudio: false,
-			existingLyrics: ''
+			existingLyrics: '',
+			companionPath: null
 		};
 	}
 
@@ -27,40 +30,29 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			track: null,
 			hasServerAudio: false,
-			existingLyrics: ''
+			existingLyrics: '',
+			companionPath: null
 		};
 	}
 
 	let existingLyrics = track.lyrics_text || '';
 	let hasServerAudio = false;
+	let companionPath: string | null = null;
+	const audioPath = resolveTrackFilePath(track);
 
-	if (track.file_path && fs.existsSync(track.file_path)) {
+	if (audioPath) {
 		hasServerAudio = true;
-		if (!existingLyrics) {
-			const dir = path.dirname(track.file_path);
-			const base = path.basename(track.file_path, path.extname(track.file_path));
-			const lrcPath = path.join(dir, `${base}.lrc`);
-			const txtPath = path.join(dir, `${base}.txt`);
-
-			if (fs.existsSync(lrcPath)) {
-				try {
-					existingLyrics = fs.readFileSync(lrcPath, 'utf-8');
-				} catch {
-					// Ignore
-				}
-			} else if (fs.existsSync(txtPath)) {
-				try {
-					existingLyrics = fs.readFileSync(txtPath, 'utf-8');
-				} catch {
-					// Ignore
-				}
-			}
+		const companion = findCompanionLyricsFile(audioPath, track.title);
+		if (companion) {
+			companionPath = companion.filePath;
+			existingLyrics = companion.content;
 		}
 	}
 
 	return {
 		track,
 		hasServerAudio,
-		existingLyrics
+		existingLyrics,
+		companionPath
 	};
 };
