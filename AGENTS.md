@@ -68,6 +68,13 @@ This document preserves persistent context, architectural conventions, recent ch
       - Library Scanner banner for untagged / unknown music files.
       - Album detail action bar ("Tag in Picard" shortcut).
       - Account Settings system information card with direct launch button.
+12. **Interactive LRC Maker Studio (`/lrc-maker`)**:
+    - Added database columns `file_path` and `lyrics_text` to `tracks` table with idempotent `PRAGMA table_info` migrations.
+    - Added audio streaming endpoint `GET /api/tracks/[id]/audio` with HTTP 206 Partial Content (Range byte seeking).
+    - Added lyrics endpoint `GET / POST /api/tracks/[id]/lyrics` supporting database persistence and companion `.lrc` file saving.
+    - Added LRCLIB proxy endpoint `GET /api/lyrics/search` for 1-click lyric lookups from lrclib.net.
+    - Created studio UI (`src/routes/lrc-maker/+page.svelte`) with playback speed controls (0.5x - 1.25x), hotkey stamping (`Space`/`Enter`), step-back, line fine-tuning (`+/- 0.1s`), and live karaoke preview.
+    - Integrated deep shortcuts across Track Vault: Navbar desktop & mobile, `TrackRow` row action button, and The Fixer issues table.
 
 ---
 

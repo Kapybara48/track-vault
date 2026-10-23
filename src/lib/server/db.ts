@@ -63,6 +63,8 @@ db.exec(`
 		needs_attention INTEGER NOT NULL DEFAULT 0,
 		manually_checked INTEGER NOT NULL DEFAULT 0,
 		notes TEXT,
+		file_path TEXT,
+		lyrics_text TEXT,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
@@ -105,6 +107,14 @@ if (!columnExists('albums', 'fixer_rules')) {
 
 if (!columnExists('tracks', 'manually_checked')) {
 	db.exec(`ALTER TABLE tracks ADD COLUMN manually_checked INTEGER NOT NULL DEFAULT 0;`);
+}
+
+if (!columnExists('tracks', 'file_path')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN file_path TEXT;`);
+}
+
+if (!columnExists('tracks', 'lyrics_text')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN lyrics_text TEXT;`);
 }
 
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
@@ -595,6 +605,8 @@ export function createAlbum(
 		lyrics?: LyricsStatus;
 		manually_checked?: number;
 		notes?: string | null;
+		file_path?: string | null;
+		lyrics_text?: string | null;
 	}> = []
 ): number {
 	const insertAlbum = db.prepare(`
@@ -603,8 +615,8 @@ export function createAlbum(
 	`);
 
 	const insertTrack = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`);
 
 	const transaction = db.transaction(() => {
@@ -641,7 +653,9 @@ export function createAlbum(
 				lyrics,
 				needsAtt,
 				t.manually_checked || 0,
-				t.notes?.trim() ?? null
+				t.notes?.trim() ?? null,
+				t.file_path?.trim() ?? null,
+				t.lyrics_text ?? null
 			);
 		}
 
@@ -716,6 +730,8 @@ export function updateTrack(
 		censorship: CensorshipStatus;
 		lyrics: LyricsStatus;
 		notes: string | null;
+		file_path: string | null;
+		lyrics_text: string | null;
 		needs_attention: number;
 		manually_checked: number;
 	}>
@@ -745,6 +761,8 @@ export function updateTrack(
 			needs_attention = ?,
 			manually_checked = CASE WHEN ? = 1 THEN ? ELSE manually_checked END,
 			notes = CASE WHEN ? = 1 THEN ? ELSE notes END,
+			file_path = CASE WHEN ? = 1 THEN ? ELSE file_path END,
+			lyrics_text = CASE WHEN ? = 1 THEN ? ELSE lyrics_text END,
 			updated_at = datetime('now')
 		WHERE id = ?
 	`).run(
@@ -764,6 +782,10 @@ export function updateTrack(
 		data.manually_checked ?? 0,
 		data.notes !== undefined ? 1 : 0,
 		data.notes?.trim() ?? null,
+		data.file_path !== undefined ? 1 : 0,
+		data.file_path?.trim() ?? null,
+		data.lyrics_text !== undefined ? 1 : 0,
+		data.lyrics_text ?? null,
 		id
 	);
 
@@ -826,6 +848,8 @@ export function addTrackToAlbum(
 		lyrics?: LyricsStatus;
 		manually_checked?: number;
 		notes?: string | null;
+		file_path?: string | null;
+		lyrics_text?: string | null;
 	}
 ): number {
 	let trackNumber = trackData.track_number;
@@ -844,8 +868,8 @@ export function addTrackToAlbum(
 	const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
 	const result = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`).run(
 		albumId,
 		trackData.disc_number || 1,
@@ -859,7 +883,9 @@ export function addTrackToAlbum(
 		lyrics,
 		needsAtt,
 		trackData.manually_checked ?? 0,
-		trackData.notes?.trim() ?? null
+		trackData.notes?.trim() ?? null,
+		trackData.file_path?.trim() ?? null,
+		trackData.lyrics_text ?? null
 	);
 
 	return Number(result.lastInsertRowid);
@@ -867,6 +893,59 @@ export function addTrackToAlbum(
 
 export function deleteTrack(trackId: number): void {
 	db.prepare('DELETE FROM tracks WHERE id = ?').run(trackId);
+}
+
+/**
+ * Retrieve a single track by ID with its parent album title, artist, and cover
+ */
+export function getTrackById(
+	trackId: number
+): (Track & { album_title: string; album_artist: string; album_cover_url?: string | null; album_year?: number | null }) | null {
+	const track = db.prepare(`
+		SELECT 
+			t.*,
+			a.title as album_title,
+			a.artist as album_artist,
+			a.cover_url as album_cover_url,
+			a.release_year as album_year
+		FROM tracks t
+		JOIN albums a ON t.album_id = a.id
+		WHERE t.id = ?
+	`).get(trackId) as (Track & { album_title: string; album_artist: string; album_cover_url?: string | null; album_year?: number | null }) | undefined;
+
+	return track || null;
+}
+
+/**
+ * Save lyrics text directly to a track and update lyrics status
+ */
+export function saveTrackLyrics(
+	trackId: number,
+	lyricsText: string,
+	status: LyricsStatus = 'synced_lrc'
+): Track {
+	const current = db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId) as Track | undefined;
+	if (!current) throw new Error(`Track with id ${trackId} not found`);
+
+	const rules = getAlbumFixerRules(current.album_id);
+	const needsAttention = computeNeedsAttention(
+		current.quality_rating,
+		current.censorship,
+		status,
+		current.format,
+		rules
+	);
+
+	db.prepare(`
+		UPDATE tracks SET
+			lyrics = ?,
+			lyrics_text = ?,
+			needs_attention = ?,
+			updated_at = datetime('now')
+		WHERE id = ?
+	`).run(status, lyricsText, needsAttention, trackId);
+
+	return db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId) as Track;
 }
 
 export function getIssuesTracks(params?: {

@@ -32,7 +32,7 @@ export function getMusicDirectory(): string {
 	return path.resolve('./music');
 }
 
-function isPathWithin(targetPath: string, rootPath: string): boolean {
+export function isPathWithin(targetPath: string, rootPath: string): boolean {
 	const relative = path.relative(rootPath, targetPath);
 	return !relative.startsWith('..') && !path.isAbsolute(relative);
 }
@@ -529,6 +529,7 @@ export async function importScannedAlbum(
 		quality_rating: t.quality_rating,
 		censorship: t.censorship,
 		lyrics: t.lyrics,
+		file_path: t.file_path,
 		notes: `Imported from: ${path.basename(t.file_path)}`
 	}));
 

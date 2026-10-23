@@ -12,7 +12,8 @@
 		User as UserIcon,
 		Settings as SettingsIcon,
 		Tag,
-		ExternalLink
+		ExternalLink,
+		Mic
 	} from '@lucide/svelte';
 
 	interface Props {
@@ -87,6 +88,14 @@
 				>
 					<FolderSync class="h-4 w-4 text-emerald-400" />
 					Scan Library
+				</a>
+
+				<a
+					href="/lrc-maker"
+					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/lrc-maker') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+				>
+					<Mic class="h-4 w-4 text-emerald-400" />
+					LRC Maker
 				</a>
 
 				<a
@@ -170,6 +179,13 @@
 		>
 			<Tag class="h-4 w-4" />
 			Picard
+		</a>
+		<a
+			href="/lrc-maker"
+			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/lrc-maker') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
+		>
+			<Mic class="h-4 w-4" />
+			LRC
 		</a>
 		<a
 			href="/issues"

@@ -184,18 +184,28 @@
 			</select>
 
 			<!-- Lyrics -->
-			<select
-				value={track.lyrics}
-				onchange={(e) => updateField('lyrics', e.currentTarget.value)}
-				disabled={isUpdating}
-				class="rounded-lg border px-2 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
-			>
-				{#each LYRICS_OPTIONS as opt}
-					<option value={opt.value} class="bg-neutral-900 text-neutral-200">
-						{opt.label}
-					</option>
-				{/each}
-			</select>
+			<div class="flex items-center gap-1">
+				<select
+					value={track.lyrics}
+					onchange={(e) => updateField('lyrics', e.currentTarget.value)}
+					disabled={isUpdating}
+					class="rounded-lg border px-2 py-1 text-xs font-medium cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-emerald-500 {LYRICS_OPTIONS.find(l => l.value === track.lyrics)?.color || 'text-neutral-300 bg-neutral-900 border-neutral-800'}"
+				>
+					{#each LYRICS_OPTIONS as opt}
+						<option value={opt.value} class="bg-neutral-900 text-neutral-200">
+							{opt.label}
+						</option>
+					{/each}
+				</select>
+
+				<a
+					href="/lrc-maker?trackId={track.id}"
+					class="rounded-lg border border-neutral-800 bg-neutral-900/80 p-1.5 text-neutral-400 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-950/20 transition flex items-center justify-center shrink-0"
+					title="Open in LRC Maker"
+				>
+					<Mic2 class="h-3 w-3" />
+				</a>
+			</div>
 		</div>
 
 		<!-- Actions: Notes snippet / toggle & Delete -->

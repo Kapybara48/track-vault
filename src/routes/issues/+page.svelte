@@ -22,7 +22,8 @@
 		ExternalLink,
 		ArrowRight,
 		Filter,
-		RotateCcw
+		RotateCcw,
+		Mic2
 	} from '@lucide/svelte';
 	import CustomCheckbox from '$lib/components/CustomCheckbox.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -446,6 +447,16 @@
 									<option value={l.value} class="bg-neutral-900 text-neutral-200">{l.label}</option>
 								{/each}
 							</select>
+
+							<!-- Make LRC Button -->
+							<a
+								href="/lrc-maker?trackId={track.id}"
+								class="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs font-medium text-neutral-300 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-950/20 transition flex items-center gap-1"
+								title="Open in LRC Maker"
+							>
+								<Mic2 class="h-3 w-3" />
+								<span>LRC</span>
+							</a>
 
 							<!-- Verify button -->
 							{#if track.manually_checked !== 1}

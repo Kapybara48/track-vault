@@ -14,9 +14,15 @@
 - **Censorship & Clean Edits Tracking**:
   - Mark tracks as **Explicit / Uncensored Original**, **Clean Original**, or **Censored / Radio Edit**.
   - Highlights censored tracks so you know which ones need replacing with their original uncensored releases.
-- **Lyrics Coverage Tracking**:
+- **Lyrics Coverage Tracking & Studio**:
   - Track whether songs have synchronized time-coded **Synced (.lrc)** lyrics, **Plain text (.txt)**, or are **Missing lyrics**.
   - Flag instrumental tracks where vocals aren't needed.
+  - **Interactive LRC Maker Studio (`/lrc-maker`)**:
+    - Built-in audio player with Range-seeking server streaming or local drag-and-drop audio file loading.
+    - 1-click **LRCLIB.net** integration to fetch plain lyrics or ready-to-use synced lyrics.
+    - Synchronize lyrics line-by-line using keyboard hotkeys (`Space` / `Enter`).
+    - Millisecond fine-tuning (`+/- 0.1s`), step-back navigation, and real-time live karaoke preview.
+    - Save `.lrc` companion files directly to server disk, persist in SQLite database, download `.lrc`, or copy to clipboard.
 - **Local Music Library Scanner**:
   - Point Track Vault to your server's music library directory.
   - Automatically reads audio metadata (**FLAC, MP3, M4A, OGG, WAV, etc.**).

@@ -96,6 +96,8 @@ export interface Track {
 	needs_attention: number; // 0 or 1
 	manually_checked: number; // 0 or 1 (100% verified by user)
 	notes: string | null;
+	file_path?: string | null;
+	lyrics_text?: string | null;
 	created_at: string;
 	updated_at: string;
 	// Joined album info
