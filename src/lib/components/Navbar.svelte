@@ -1,6 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Disc3, TriangleAlert, Plus, Music, Library, Sparkles, FolderSync, LogOut, User as UserIcon } from '@lucide/svelte';
+	import {
+		Disc3,
+		TriangleAlert,
+		Plus,
+		Music,
+		Library,
+		Sparkles,
+		FolderSync,
+		LogOut,
+		User as UserIcon,
+		Settings as SettingsIcon
+	} from '@lucide/svelte';
 
 	interface Props {
 		issuesCount?: number;
@@ -69,6 +80,14 @@
 					<FolderSync class="h-4 w-4 text-emerald-400" />
 					Scan Library
 				</a>
+
+				<a
+					href="/settings"
+					class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition {currentPath.startsWith('/settings') ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-sm' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+				>
+					<SettingsIcon class="h-4 w-4 text-emerald-400" />
+					Settings
+				</a>
 			</nav>
 		</div>
 
@@ -84,13 +103,14 @@
 
 			{#if user && !authDisabled}
 				<div class="flex items-center gap-2 pl-2 border-l border-neutral-800">
-					<span
-						class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5"
-						title="Logged in as {user.username}"
+					<a
+						href="/settings"
+						class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5 hover:border-emerald-600/50 hover:text-white transition"
+						title="Account Settings ({user.username})"
 					>
 						<UserIcon class="h-3.5 w-3.5 text-emerald-400" />
 						<span class="truncate max-w-[100px]">{user.username}</span>
-					</span>
+					</a>
 
 					<button
 						type="button"
@@ -132,6 +152,13 @@
 					{issuesCount}
 				</span>
 			{/if}
+		</a>
+		<a
+			href="/settings"
+			class="flex items-center gap-1.5 py-1 text-xs font-medium {currentPath.startsWith('/settings') ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}"
+		>
+			<SettingsIcon class="h-4 w-4" />
+			Settings
 		</a>
 	</div>
 </header>

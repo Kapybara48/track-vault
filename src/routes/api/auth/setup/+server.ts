@@ -1,7 +1,13 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { hasAnyUser, createInitialAdmin, createSession } from '$lib/server/auth.js';
+import {
+	hasAnyUser,
+	createInitialAdmin,
+	createSession,
+	getSessionCookieOptions,
+	SESSION_COOKIE_NAME
+} from '$lib/server/auth.js';
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	const usersExist = hasAnyUser();
 	if (usersExist) {
 		return json({ error: 'Administrator account already exists. Please log in.' }, { status: 400 });
@@ -34,13 +40,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const user = createInitialAdmin(username, password);
 		const sessionId = createSession(user.id);
 
-		cookies.set('vault_session', sessionId, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: process.env.COOKIE_SECURE === 'true',
-			maxAge: 30 * 24 * 60 * 60 // 30 days
-		});
+		cookies.set(SESSION_COOKIE_NAME, sessionId, getSessionCookieOptions(url));
 
 		return json({ success: true, redirect: '/' });
 	} catch (err: any) {

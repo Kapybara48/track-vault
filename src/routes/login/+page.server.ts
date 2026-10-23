@@ -1,6 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types.js';
-import { hasAnyUser, authenticateUser, createSession, isAuthDisabled } from '$lib/server/auth.js';
+import {
+	hasAnyUser,
+	authenticateUser,
+	createSession,
+	isAuthDisabled,
+	getSessionCookieOptions,
+	SESSION_COOKIE_NAME
+} from '$lib/server/auth.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (isAuthDisabled() || locals.user) {
@@ -38,13 +45,7 @@ export const actions: Actions = {
 		}
 
 		const sessionId = createSession(user.id);
-		cookies.set('vault_session', sessionId, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: process.env.NODE_ENV === 'production',
-			maxAge: 30 * 24 * 60 * 60 // 30 days
-		});
+		cookies.set(SESSION_COOKIE_NAME, sessionId, getSessionCookieOptions(url));
 
 		throw redirect(303, redirectTo);
 	}

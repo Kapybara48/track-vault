@@ -94,22 +94,20 @@ db.exec(`
 `);
 
 // Idempotent column migrations for existing databases
-try {
-	db.exec(`ALTER TABLE albums ADD COLUMN fixer_rules TEXT;`);
-} catch {
-	// Column already exists
-}
-try {
-	db.exec(`ALTER TABLE tracks ADD COLUMN manually_checked INTEGER NOT NULL DEFAULT 0;`);
-} catch {
-	// Column already exists
+function columnExists(table: string, column: string): boolean {
+	const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+	return columns.some((c) => c.name === column);
 }
 
-try {
-	db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
-} catch {
-	// Index already exists
+if (!columnExists('albums', 'fixer_rules')) {
+	db.exec(`ALTER TABLE albums ADD COLUMN fixer_rules TEXT;`);
 }
+
+if (!columnExists('tracks', 'manually_checked')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN manually_checked INTEGER NOT NULL DEFAULT 0;`);
+}
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
 
 /**
  * Helper to determine if a track needs attention according to album or global fixer rules
@@ -169,7 +167,12 @@ export function updateAlbumFixerRules(
 	albumId: number,
 	rules: FixerRules,
 	applyToAll: boolean = false
-): { album: Album; tracks: Track[] } {
+): { album: Album; tracks: Track[] } | null {
+	const existing = getAlbumById(albumId);
+	if (!existing) {
+		return null;
+	}
+
 	const rulesJson = JSON.stringify(rules);
 
 	if (applyToAll) {
@@ -196,7 +199,7 @@ export function updateAlbumFixerRules(
 		tx();
 	}
 
-	return getAlbumById(albumId)!;
+	return getAlbumById(albumId);
 }
 
 export function getStats(): CollectionStats {

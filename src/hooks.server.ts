@@ -1,5 +1,5 @@
 import { redirect, json, type RequestEvent } from '@sveltejs/kit';
-import { isAuthDisabled, hasAnyUser, validateSession } from '$lib/server/auth.js';
+import { isAuthDisabled, hasAnyUser, validateSession, SESSION_COOKIE_NAME } from '$lib/server/auth.js';
 
 export async function handle({
 	event,
@@ -42,7 +42,7 @@ export async function handle({
 	}
 
 	// Normal auth check with session cookie
-	const sessionId = event.cookies.get('vault_session');
+	const sessionId = event.cookies.get(SESSION_COOKIE_NAME);
 	const user = sessionId ? validateSession(sessionId) : null;
 	event.locals.user = user;
 

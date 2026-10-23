@@ -8,9 +8,52 @@ export interface User {
 	created_at?: string;
 }
 
+export const SESSION_COOKIE_NAME = 'vault_session';
+
+let authDisabledWarned = false;
+
 export function isAuthDisabled(): boolean {
 	const val = process.env.AUTH_DISABLED || process.env.DISABLE_AUTH;
-	return val === 'true' || val === '1';
+	const disabled = val === 'true' || val === '1';
+	if (disabled && !authDisabledWarned) {
+		authDisabledWarned = true;
+		console.warn(
+			'⚠️  SECURITY WARNING: Authentication is globally disabled (AUTH_DISABLED=true). All requests are granted administrator privileges.'
+		);
+	}
+	return disabled;
+}
+
+/**
+ * Determine whether session cookies should be marked secure
+ */
+export function isCookieSecure(url?: URL): boolean {
+	if (process.env.COOKIE_SECURE !== undefined) {
+		return process.env.COOKIE_SECURE === 'true' || process.env.COOKIE_SECURE === '1';
+	}
+	if (url?.protocol === 'https:') {
+		return true;
+	}
+	return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * Centralized session cookie configuration
+ */
+export function getSessionCookieOptions(url?: URL): {
+	path: string;
+	httpOnly: boolean;
+	sameSite: 'lax';
+	secure: boolean;
+	maxAge: number;
+} {
+	return {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: isCookieSecure(url),
+		maxAge: 30 * 24 * 60 * 60 // 30 days
+	};
 }
 
 /**
@@ -134,4 +177,51 @@ export function validateSession(sessionId: string): User | null {
 export function deleteSession(sessionId: string): void {
 	if (!sessionId) return;
 	db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+}
+
+/**
+ * Retrieve user by ID
+ */
+export function getUserById(id: number): User | null {
+	const row = db.prepare('SELECT id, username, role, created_at FROM users WHERE id = ?').get(id) as any;
+	if (!row) return null;
+	return {
+		id: row.id,
+		username: row.username,
+		role: row.role,
+		created_at: row.created_at
+	};
+}
+
+/**
+ * Change password for a user after validating their current password
+ */
+export function changePassword(
+	userId: number,
+	currentPassword: string,
+	newPassword: string
+): { success: boolean; error?: string } {
+	if (!newPassword || newPassword.length < 6) {
+		return { success: false, error: 'New password must be at least 6 characters long' };
+	}
+
+	const row = db.prepare(
+		'SELECT id, username, password_hash, salt FROM users WHERE id = ?'
+	).get(userId) as { id: number; username: string; password_hash: string; salt: string } | undefined;
+
+	if (!row) {
+		return { success: false, error: 'User account not found' };
+	}
+
+	const isValid = verifyPassword(currentPassword, row.password_hash, row.salt);
+	if (!isValid) {
+		return { success: false, error: 'Current password is incorrect' };
+	}
+
+	const { hash, salt } = hashPassword(newPassword);
+	db.prepare(
+		"UPDATE users SET password_hash = ?, salt = ?, updated_at = datetime('now') WHERE id = ?"
+	).run(hash, salt, userId);
+
+	return { success: true };
 }

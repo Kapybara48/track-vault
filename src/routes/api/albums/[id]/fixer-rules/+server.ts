@@ -13,6 +13,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		const applyToAll: boolean = !!body.applyToAll;
 
 		const result = updateAlbumFixerRules(id, rules, applyToAll);
+		if (!result) {
+			return json({ error: 'Album not found' }, { status: 404 });
+		}
 		return json({ success: true, ...result });
 	} catch (err: any) {
 		console.error('Failed to update album fixer rules:', err);

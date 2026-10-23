@@ -1,6 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types.js';
-import { hasAnyUser, createInitialAdmin, createSession, isAuthDisabled } from '$lib/server/auth.js';
+import {
+	hasAnyUser,
+	createInitialAdmin,
+	createSession,
+	isAuthDisabled,
+	getSessionCookieOptions,
+	SESSION_COOKIE_NAME
+} from '$lib/server/auth.js';
 
 export const load: PageServerLoad = async () => {
 	if (isAuthDisabled()) {
@@ -16,7 +23,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, cookies, url }) => {
 		const usersExist = hasAnyUser();
 		if (usersExist) {
 			throw redirect(303, '/login');
@@ -52,13 +59,7 @@ export const actions: Actions = {
 			const user = createInitialAdmin(username, password);
 			const sessionId = createSession(user.id);
 
-			cookies.set('vault_session', sessionId, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: process.env.NODE_ENV === 'production',
-				maxAge: 30 * 24 * 60 * 60 // 30 days
-			});
+			cookies.set(SESSION_COOKIE_NAME, sessionId, getSessionCookieOptions(url));
 		} catch (err: any) {
 			console.error('Failed to create admin:', err);
 			return fail(500, {

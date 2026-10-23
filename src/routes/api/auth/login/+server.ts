@@ -1,5 +1,11 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { authenticateUser, createSession, hasAnyUser } from '$lib/server/auth.js';
+import {
+	authenticateUser,
+	createSession,
+	hasAnyUser,
+	getSessionCookieOptions,
+	SESSION_COOKIE_NAME
+} from '$lib/server/auth.js';
 
 export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	const usersExist = hasAnyUser();
@@ -28,13 +34,7 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	}
 
 	const sessionId = createSession(user.id);
-	cookies.set('vault_session', sessionId, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: process.env.COOKIE_SECURE === 'true',
-		maxAge: 30 * 24 * 60 * 60 // 30 days
-	});
+	cookies.set(SESSION_COOKIE_NAME, sessionId, getSessionCookieOptions(url));
 
 	return json({ success: true, redirect: redirectTo });
 };

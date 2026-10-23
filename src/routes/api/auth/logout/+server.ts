@@ -1,11 +1,11 @@
 import { json, redirect, type RequestHandler } from '@sveltejs/kit';
-import { deleteSession } from '$lib/server/auth.js';
+import { deleteSession, SESSION_COOKIE_NAME } from '$lib/server/auth.js';
 
 export const POST: RequestHandler = async ({ cookies, request }) => {
-	const sessionId = cookies.get('vault_session');
+	const sessionId = cookies.get(SESSION_COOKIE_NAME);
 	if (sessionId) {
 		deleteSession(sessionId);
-		cookies.delete('vault_session', { path: '/' });
+		cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
 	}
 
 	const isJson =
@@ -20,10 +20,10 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 };
 
 export const GET: RequestHandler = async ({ cookies }) => {
-	const sessionId = cookies.get('vault_session');
+	const sessionId = cookies.get(SESSION_COOKIE_NAME);
 	if (sessionId) {
 		deleteSession(sessionId);
-		cookies.delete('vault_session', { path: '/' });
+		cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
 	}
 
 	throw redirect(303, '/login');
