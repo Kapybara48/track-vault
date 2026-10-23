@@ -61,26 +61,47 @@ services:
       - DATA_DIR=/app/data
       - MUSIC_DIR=/music
       - ORIGIN=http://localhost:3000
+      - PICARD_URL=http://localhost:5800
       # Optional: set to true if you want to bypass login on a local network
       # - AUTH_DISABLED=false
     volumes:
       # Persistent SQLite database & album covers
       - ./data:/app/data
       # Mount your existing music collection (read-only for safety)
-      - /path/to/your/music:/music:ro
+      - ${MUSIC_PATH:-./music}:/music:ro
+    depends_on:
+      - picard
+
+  # MusicBrainz Picard Web GUI (tags audio files, AcoustID fingerprints)
+  picard:
+    image: jlesage/musicbrainz-picard:latest
+    container_name: track-vault-picard
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+    environment:
+      - USER_ID=1000
+      - GROUP_ID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./data/picard-config:/config
+      # Mount music read-write so Picard can write embedded tags
+      - ${MUSIC_PATH:-./music}:/storage
+      - ${MUSIC_PATH:-./music}:/music
 ```
 
-> **Note**: Mount your music library with `:ro` (read-only). Track Vault will never modify, overwrite, or delete your audio files.
+> **Note**: Track Vault mounts your library as `:ro` (read-only) for safety. Picard mounts it read-write so it can write tags and album art directly into your audio files.
 
-### 3. Start Container
+### 3. Start Containers
 ```bash
 docker compose up -d --build
 ```
 
-Access Track Vault in your browser at:
-`http://localhost:3000` (or `http://your-server-ip:3000`)
+Access Track Vault and Picard in your browser:
+- **Track Vault**: `http://localhost:3000` (auditing, library scanner, issue tracking)
+- **MusicBrainz Picard**: `http://localhost:5800` (browser-based GUI to tag files with AcoustID)
 
-On your first visit, Track Vault will greet you with a **First-Run Admin Setup** screen to create your admin credentials. After setup, standard login is enforced unless `AUTH_DISABLED=true` is set in your environment.
+On your first visit to Track Vault, you will be greeted with a **First-Run Admin Setup** screen to create your admin credentials. After setup, standard login is enforced unless `AUTH_DISABLED=true` is set in your environment. You can quickly launch Picard at any time from the Navbar, the Library Scanner, album pages, or Settings.
 
 ---
 

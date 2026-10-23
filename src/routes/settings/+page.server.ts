@@ -23,7 +23,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		env: {
 			dataDir: process.env.DATA_DIR || './data',
 			musicDir: process.env.MUSIC_DIR || process.env.MUSIC_PATH || './music',
-			nodeEnv: process.env.NODE_ENV || 'development'
+			nodeEnv: process.env.NODE_ENV || 'development',
+			picardUrl: process.env.PICARD_URL || 'http://localhost:5800'
 		}
 	};
 };

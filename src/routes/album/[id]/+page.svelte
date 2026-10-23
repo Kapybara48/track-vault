@@ -20,7 +20,8 @@
 		ExternalLink,
 		SlidersHorizontal,
 		Search,
-		X
+		X,
+		Tag
 	} from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 
@@ -511,6 +512,18 @@
 						<span class="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Custom fixer rules active"></span>
 					{/if}
 				</button>
+
+				<a
+					href={data.picardUrl || 'http://localhost:5800'}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex items-center gap-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 hover:text-white px-3.5 py-2 text-xs font-semibold text-neutral-300 border border-neutral-700 transition"
+					title="Open MusicBrainz Picard Web Tagger to acoustic fingerprint and tag files"
+				>
+					<Tag class="h-3.5 w-3.5 text-indigo-400" />
+					<span>Tag in Picard</span>
+					<ExternalLink class="h-3 w-3 text-neutral-500" />
+				</a>
 			</div>
 
 			<div class="flex items-center gap-3">

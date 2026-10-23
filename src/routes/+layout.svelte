@@ -21,6 +21,7 @@
 			issuesCount={data.stats?.total_needs_attention || 0}
 			user={data.user}
 			authDisabled={data.authDisabled}
+			picardUrl={data.picardUrl}
 		/>
 	{/if}
 

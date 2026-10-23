@@ -10,16 +10,24 @@
 		FolderSync,
 		LogOut,
 		User as UserIcon,
-		Settings as SettingsIcon
+		Settings as SettingsIcon,
+		Tag,
+		ExternalLink
 	} from '@lucide/svelte';
 
 	interface Props {
 		issuesCount?: number;
 		user?: { id: number; username: string; role: string } | null;
 		authDisabled?: boolean;
+		picardUrl?: string;
 	}
 
-	let { issuesCount = 0, user = null, authDisabled = false }: Props = $props();
+	let {
+		issuesCount = 0,
+		user = null,
+		authDisabled = false,
+		picardUrl = 'http://localhost:5800'
+	}: Props = $props();
 
 	const currentPath = $derived(page.url.pathname);
 
@@ -94,6 +102,18 @@
 		<!-- Action Buttons & User Menu -->
 		<div class="flex items-center gap-2 sm:gap-3">
 			<a
+				href={picardUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-xs font-semibold text-neutral-300 hover:border-emerald-500/50 hover:text-white transition shadow-sm"
+				title="Open MusicBrainz Picard Web Tagger ({picardUrl})"
+			>
+				<Tag class="h-3.5 w-3.5 text-emerald-400" />
+				<span>Picard</span>
+				<ExternalLink class="h-3 w-3 text-neutral-500" />
+			</a>
+
+			<a
 				href="/add"
 				class="flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-500 active:scale-95"
 			>
@@ -140,6 +160,16 @@
 		>
 			<FolderSync class="h-4 w-4" />
 			Scan
+		</a>
+		<a
+			href={picardUrl}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="flex items-center gap-1.5 py-1 text-xs font-medium text-neutral-400 hover:text-emerald-400"
+			title="Picard Tagger"
+		>
+			<Tag class="h-4 w-4" />
+			Picard
 		</a>
 		<a
 			href="/issues"

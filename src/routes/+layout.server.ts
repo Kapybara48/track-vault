@@ -6,6 +6,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	return {
 		stats,
 		user: locals.user || null,
-		authDisabled: locals.authDisabled || false
+		authDisabled: locals.authDisabled || false,
+		picardUrl: process.env.PICARD_URL || 'http://localhost:5800'
 	};
 };

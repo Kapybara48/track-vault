@@ -59,6 +59,15 @@ This document preserves persistent context, architectural conventions, recent ch
 8. **Parameterized Query in `getAlbums()`**: Replaced `${effectiveChecked}` string interpolation with parameterized binding `t2.manually_checked = ?`.
 9. **Atomic Fixer Rule Batch Updates**: Enclosed both the album fixer rules update and track updates inside a single SQLite transaction.
 10. **Lossless Audio Quality Refinement**: Differentiated Hi-Res lossless (24-bit / >48kHz -> `perfect`) from standard CD quality lossless (16-bit / 44.1kHz -> `good`).
+11. **MusicBrainz Picard Integration (Containerized Web GUI)**:
+    - Added `picard` service (`jlesage/musicbrainz-picard:latest`) to `docker-compose.yml` exposing browser Web GUI on port `5800`.
+    - Configured shared `./music` volume mounted read-write (`:rw`) to Picard for writing tags, while Track Vault maintains `:ro` read-only access.
+    - Added configurable `PICARD_URL` environment variable defaulting to `http://localhost:5800`.
+    - Added deep UI shortcuts and links to Picard across Track Vault:
+      - Desktop Navbar & Mobile Navigation bottom bar.
+      - Library Scanner banner for untagged / unknown music files.
+      - Album detail action bar ("Tag in Picard" shortcut).
+      - Account Settings system information card with direct launch button.
 
 ---
 
