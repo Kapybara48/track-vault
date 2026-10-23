@@ -728,6 +728,9 @@ export async function importScannedAlbum(
 		artist: t.artist !== album.artist ? t.artist : null,
 		duration_ms: t.duration_ms,
 		format: t.format,
+		bitrate_kbps: t.bitrate_kbps,
+		sample_rate: t.sample_rate,
+		bits_per_sample: t.bits_per_sample,
 		quality_rating: t.quality_rating,
 		censorship: t.censorship,
 		lyrics: t.lyrics,
@@ -750,4 +753,69 @@ export async function importScannedAlbum(
 	);
 
 	return albumId;
+}
+
+/**
+ * Backfill missing bitrate and audio fidelity metadata for imported tracks in the database
+ */
+export async function backfillTrackBitrates(): Promise<number> {
+	try {
+		const nullTracks = db.prepare(`
+			SELECT id, file_path, notes, duration_ms 
+			FROM tracks 
+			WHERE bitrate_kbps IS NULL AND (file_path IS NOT NULL OR notes LIKE 'Imported from:%')
+		`).all() as Array<{ id: number; file_path: string | null; notes: string | null; duration_ms: number | null }>;
+
+		if (nullTracks.length === 0) return 0;
+
+		const updateStmt = db.prepare(`
+			UPDATE tracks 
+			SET bitrate_kbps = ?, sample_rate = ?, bits_per_sample = ? 
+			WHERE id = ?
+		`);
+
+		const updatesToApply: Array<{ id: number; bitrate: number | null; sampleRate: number | null; bitsPerSample: number | null }> = [];
+
+		for (const tr of nullTracks) {
+			const resolvedPath = resolveTrackFilePath(tr);
+			if (!resolvedPath || !fs.existsSync(resolvedPath)) continue;
+
+			try {
+				const meta = await parseFile(resolvedPath, { duration: true, skipCovers: true });
+				let bitrateKbps = meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null;
+
+				// Fallback: estimate from file size and duration if bitrate is missing
+				if (!bitrateKbps && tr.duration_ms && tr.duration_ms > 0) {
+					try {
+						const stat = fs.statSync(resolvedPath);
+						bitrateKbps = Math.round((stat.size * 8) / tr.duration_ms);
+					} catch {}
+				}
+
+				updatesToApply.push({
+					id: tr.id,
+					bitrate: bitrateKbps,
+					sampleRate: meta.format.sampleRate || null,
+					bitsPerSample: meta.format.bitsPerSample || null
+				});
+			} catch (err) {
+				console.warn(`Failed extracting bitrate for track ID ${tr.id}:`, err);
+			}
+		}
+
+		if (updatesToApply.length > 0) {
+			const batch = db.transaction((items: typeof updatesToApply) => {
+				for (const item of items) {
+					updateStmt.run(item.bitrate, item.sampleRate, item.bitsPerSample, item.id);
+				}
+			});
+			batch(updatesToApply);
+			console.log(`[TrackVault] Successfully backfilled exact bitrate for ${updatesToApply.length} tracks.`);
+		}
+
+		return updatesToApply.length;
+	} catch (err) {
+		console.warn('Track bitrate backfill notice:', err);
+		return 0;
+	}
 }

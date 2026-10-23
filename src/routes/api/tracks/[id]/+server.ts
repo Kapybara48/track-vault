@@ -1,6 +1,16 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { updateTrack, deleteTrack } from '$lib/server/db.js';
+import { updateTrack, deleteTrack, getTrackById } from '$lib/server/db.js';
+
+export const GET: RequestHandler = async ({ params }) => {
+	const id = parseInt(params.id, 10);
+	if (isNaN(id)) return json({ error: 'Invalid track ID' }, { status: 400 });
+
+	const track = getTrackById(id);
+	if (!track) return json({ error: 'Track not found' }, { status: 404 });
+
+	return json({ success: true, track });
+};
 
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = parseInt(params.id, 10);

@@ -199,7 +199,9 @@
 		if (data.track && data.hasServerAudio) {
 			audioSrc = `/api/tracks/${data.track.id}/audio`;
 			isUsingServerAudio = true;
-			audioFileName = `Server Audio (${data.track.format})`;
+			audioFileName = data.track.bitrate_kbps
+				? `Server Audio (${data.track.format} • ${data.track.bitrate_kbps.toLocaleString()} kbps)`
+				: `Server Audio (${data.track.format})`;
 		}
 
 		// 2. Load existing lyrics from track or database

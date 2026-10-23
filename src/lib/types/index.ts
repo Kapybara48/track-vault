@@ -98,6 +98,9 @@ export interface Track {
 	notes: string | null;
 	file_path?: string | null;
 	lyrics_text?: string | null;
+	bitrate_kbps?: number | null;
+	sample_rate?: number | null;
+	bits_per_sample?: number | null;
 	created_at: string;
 	updated_at: string;
 	// Joined album info

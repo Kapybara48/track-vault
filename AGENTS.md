@@ -109,6 +109,18 @@ This document preserves persistent context, architectural conventions, recent ch
     - Enabled uninterrupted background music playback when navigating between any pages (`/`, `/issues`, `/lrc-maker`, `/scan`, `/settings`) and across browser tabs.
     - Added floating `GlobalMiniPlayer.svelte` dock on non-player pages with album art, track details, play/pause, skip, progress scrubber, volume, open studio player shortcut, and stop/close dismiss button.
     - Refined lyrics typography in `/player`: enlarged default inactive lines to `text-[15px] font-medium leading-relaxed` and active singing line to `text-[17px] font-bold leading-relaxed text-emerald-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.35)] bg-emerald-950/20`, eliminating jarring 2x size jumps and layout shifts.
+19. **Exact Audio Bitrate & Fidelity Extraction Across Track Vault**:
+    - Added database columns `bitrate_kbps`, `sample_rate`, and `bits_per_sample` to the SQLite `tracks` table with idempotent `PRAGMA table_info` migrations.
+    - Updated `createAlbum`, `addTrackToAlbum`, and `updateTrack` in `src/lib/server/db.ts` to persist exact bitrates and sample rates.
+    - Implemented automated server boot backfill routine in `src/lib/server/scanner.ts` and `src/hooks.server.ts` extracting audio bitrates via `music-metadata` (and duration/size fallback) without blocking server startup.
+    - Updated `getBitrateLabel(format, bitrate_kbps)` in `src/lib/utils.ts` to return precise formatted bitrates (e.g., `893 kbps`, `1,049 kbps`).
+    - Exposed exact bitrates across all views:
+      - `/player`: Bottom floating dock (`FLAC • 893 kbps • 16-bit / 48.0 kHz`), song rows table, and queue drawer.
+      - `GlobalMiniPlayer.svelte`: Now-playing audio fidelity pill.
+      - `/album/[id]` (`TrackRow.svelte`): Exact bitrate badge.
+      - `/issues`: Track table badge.
+      - `/lrc-maker`: Audio header source label.
+    - Added API endpoint `GET /api/tracks/[id]` for retrieving track metadata and bitrates.
 
 ---
 

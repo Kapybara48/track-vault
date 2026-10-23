@@ -45,7 +45,10 @@ export const LYRICS_OPTIONS: { value: LyricsStatus; label: string; shortLabel: s
 	{ value: 'instrumental', label: 'Instrumental', shortLabel: 'Inst.', color: 'text-neutral-400 bg-neutral-900 border-neutral-800' }
 ];
 
-export function getBitrateLabel(format: AudioFormat): string {
+export function getBitrateLabel(format: AudioFormat, bitrateKbps?: number | null): string {
+	if (bitrateKbps && bitrateKbps > 0) {
+		return `${bitrateKbps.toLocaleString()} kbps`;
+	}
 	switch (format) {
 		case 'FLAC':
 		case 'ALAC':

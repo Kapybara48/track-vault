@@ -382,7 +382,7 @@
 										{/if}
 										<span>•</span>
 										<span class="rounded bg-neutral-800/80 px-1.5 py-0.2 text-[10px] font-mono text-neutral-300 border border-neutral-700/60">
-											{getBitrateLabel(track.format)}
+											{getBitrateLabel(track.format, track.bitrate_kbps)}
 										</span>
 									</div>
 								</div>

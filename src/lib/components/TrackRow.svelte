@@ -135,7 +135,7 @@
 			<span class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium {getFormatBadgeClass(track.format)}">
 				<span class="font-bold uppercase font-mono">{track.format}</span>
 				<span class="opacity-40">|</span>
-				<span class="text-neutral-200 font-mono text-[10px]">{getBitrateLabel(track.format)}</span>
+				<span class="text-neutral-200 font-mono text-[10px]">{getBitrateLabel(track.format, track.bitrate_kbps)}</span>
 			</span>
 		</div>
 	</div>

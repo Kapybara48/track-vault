@@ -57,6 +57,9 @@ db.exec(`
 		artist TEXT,
 		duration_ms INTEGER,
 		format TEXT NOT NULL DEFAULT 'FLAC',
+		bitrate_kbps INTEGER,
+		sample_rate INTEGER,
+		bits_per_sample INTEGER,
 		quality_rating TEXT NOT NULL DEFAULT 'good',
 		censorship TEXT NOT NULL DEFAULT 'explicit',
 		lyrics TEXT NOT NULL DEFAULT 'none',
@@ -115,6 +118,18 @@ if (!columnExists('tracks', 'file_path')) {
 
 if (!columnExists('tracks', 'lyrics_text')) {
 	db.exec(`ALTER TABLE tracks ADD COLUMN lyrics_text TEXT;`);
+}
+
+if (!columnExists('tracks', 'bitrate_kbps')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN bitrate_kbps INTEGER;`);
+}
+
+if (!columnExists('tracks', 'sample_rate')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN sample_rate INTEGER;`);
+}
+
+if (!columnExists('tracks', 'bits_per_sample')) {
+	db.exec(`ALTER TABLE tracks ADD COLUMN bits_per_sample INTEGER;`);
 }
 
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_manually_checked ON tracks(manually_checked);`);
@@ -639,6 +654,9 @@ export function createAlbum(
 		artist?: string | null;
 		duration_ms?: number | null;
 		format?: AudioFormat;
+		bitrate_kbps?: number | null;
+		sample_rate?: number | null;
+		bits_per_sample?: number | null;
 		quality_rating?: QualityRating;
 		censorship?: CensorshipStatus;
 		lyrics?: LyricsStatus;
@@ -654,8 +672,8 @@ export function createAlbum(
 	`);
 
 	const insertTrack = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, bitrate_kbps, sample_rate, bits_per_sample, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`);
 
 	const transaction = db.transaction(() => {
@@ -687,6 +705,9 @@ export function createAlbum(
 				t.artist?.trim() ?? null,
 				t.duration_ms ?? null,
 				format,
+				t.bitrate_kbps ?? null,
+				t.sample_rate ?? null,
+				t.bits_per_sample ?? null,
 				quality,
 				censorship,
 				lyrics,
@@ -765,6 +786,9 @@ export function updateTrack(
 		artist: string | null;
 		duration_ms: number | null;
 		format: AudioFormat;
+		bitrate_kbps: number | null;
+		sample_rate: number | null;
+		bits_per_sample: number | null;
 		quality_rating: QualityRating;
 		censorship: CensorshipStatus;
 		lyrics: LyricsStatus;
@@ -794,6 +818,9 @@ export function updateTrack(
 			artist = CASE WHEN ? = 1 THEN ? ELSE artist END,
 			duration_ms = CASE WHEN ? = 1 THEN ? ELSE duration_ms END,
 			format = ?,
+			bitrate_kbps = CASE WHEN ? = 1 THEN ? ELSE bitrate_kbps END,
+			sample_rate = CASE WHEN ? = 1 THEN ? ELSE sample_rate END,
+			bits_per_sample = CASE WHEN ? = 1 THEN ? ELSE bits_per_sample END,
 			quality_rating = ?,
 			censorship = ?,
 			lyrics = ?,
@@ -813,6 +840,12 @@ export function updateTrack(
 		data.duration_ms !== undefined ? 1 : 0,
 		data.duration_ms ?? null,
 		newFormat,
+		data.bitrate_kbps !== undefined ? 1 : 0,
+		data.bitrate_kbps ?? null,
+		data.sample_rate !== undefined ? 1 : 0,
+		data.sample_rate ?? null,
+		data.bits_per_sample !== undefined ? 1 : 0,
+		data.bits_per_sample ?? null,
 		newQuality,
 		newCensorship,
 		newLyrics,
@@ -882,6 +915,9 @@ export function addTrackToAlbum(
 		artist?: string | null;
 		duration_ms?: number | null;
 		format?: AudioFormat;
+		bitrate_kbps?: number | null;
+		sample_rate?: number | null;
+		bits_per_sample?: number | null;
 		quality_rating?: QualityRating;
 		censorship?: CensorshipStatus;
 		lyrics?: LyricsStatus;
@@ -907,8 +943,8 @@ export function addTrackToAlbum(
 	const needsAtt = computeNeedsAttention(quality, censorship, lyrics, format, rules);
 
 	const result = db.prepare(`
-		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tracks (album_id, disc_number, track_number, title, artist, duration_ms, format, bitrate_kbps, sample_rate, bits_per_sample, quality_rating, censorship, lyrics, needs_attention, manually_checked, notes, file_path, lyrics_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`).run(
 		albumId,
 		trackData.disc_number || 1,
@@ -917,6 +953,9 @@ export function addTrackToAlbum(
 		trackData.artist?.trim() ?? null,
 		trackData.duration_ms ?? null,
 		format,
+		trackData.bitrate_kbps ?? null,
+		trackData.sample_rate ?? null,
+		trackData.bits_per_sample ?? null,
 		quality,
 		censorship,
 		lyrics,

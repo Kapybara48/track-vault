@@ -593,11 +593,18 @@
 
 									<!-- Quality Badge -->
 									<td class="hidden sm:table-cell pr-3">
-										<span class="px-2 py-0.5 rounded text-[10px] font-mono {track.format === 'FLAC'
-											? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
-											: 'bg-neutral-800 text-neutral-300 border border-neutral-700/40'}">
-											{track.format}
-										</span>
+										<div class="flex items-center gap-1.5 flex-wrap">
+											<span class="px-2 py-0.5 rounded text-[10px] font-mono {track.format === 'FLAC'
+												? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
+												: 'bg-neutral-800 text-neutral-300 border border-neutral-700/40'}">
+												{track.format}
+											</span>
+											{#if track.bitrate_kbps}
+												<span class="text-[10px] font-mono text-neutral-400 bg-neutral-950/70 px-1.5 py-0.5 rounded border border-neutral-800/80">
+													{track.bitrate_kbps.toLocaleString()} kbps
+												</span>
+											{/if}
+										</div>
 									</td>
 
 									<!-- Lyrics Indicator Button -->
@@ -733,7 +740,12 @@
 										<div class="text-xs font-bold text-emerald-300 truncate">{player.currentTrack.title}</div>
 										<div class="text-[10px] text-neutral-400 truncate">{player.currentTrack.artist || player.currentAlbum?.artist}</div>
 									</div>
-									<span class="text-xs font-mono text-neutral-400">{formatDurationMs(player.currentTrack.duration_ms)}</span>
+									<div class="text-right shrink-0">
+										<div class="text-xs font-mono text-neutral-400">{formatDurationMs(player.currentTrack.duration_ms)}</div>
+										{#if player.currentTrack.bitrate_kbps}
+											<div class="text-[9px] font-mono text-emerald-400 font-semibold">{player.currentTrack.bitrate_kbps.toLocaleString()} kbps</div>
+										{/if}
+									</div>
 								</div>
 							{/if}
 
@@ -750,7 +762,12 @@
 										<div class="font-medium text-white truncate">{nextTr.title}</div>
 										<div class="text-[10px] text-neutral-400 truncate">{nextTr.artist || player.currentAlbum?.artist}</div>
 									</div>
-									<span class="text-[10px] font-mono text-neutral-500">{formatDurationMs(nextTr.duration_ms)}</span>
+									<div class="text-right shrink-0">
+										<span class="text-[10px] font-mono text-neutral-500 block">{formatDurationMs(nextTr.duration_ms)}</span>
+										{#if nextTr.bitrate_kbps}
+											<span class="text-[9px] font-mono text-neutral-400">{nextTr.bitrate_kbps} kbps</span>
+										{/if}
+									</div>
 								</button>
 							{/each}
 						</div>
@@ -763,7 +780,7 @@
 	<!-- BOTTOM FLOATING STUDIO PLAYER BAR (Refined Audiophile Glass Dock) -->
 	<footer class="shrink-0 mx-3 mb-3 p-3 rounded-2xl bg-neutral-900/85 backdrop-blur-2xl border border-neutral-800/80 shadow-2xl flex items-center justify-between gap-4 z-40">
 		<!-- Left: Now Playing Info -->
-		<div class="flex items-center gap-3 w-1/4 min-w-[180px]">
+		<div class="flex items-center gap-3 w-1/4 min-w-[200px]">
 			{#if player.currentTrack}
 				<div class="w-12 h-12 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 shadow">
 					{#if player.currentAlbum?.cover_url}
@@ -782,10 +799,21 @@
 					<div class="text-[11px] text-neutral-400 truncate">
 						{player.currentTrack.artist || player.currentAlbum?.artist || 'Track Vault'}
 					</div>
-					<div class="mt-0.5">
-						<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-950 border border-emerald-500/30 text-emerald-400">
-							{player.currentTrack.format} Lossless
+					<div class="mt-0.5 flex items-center gap-1.5 flex-wrap">
+						<span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-neutral-950 border border-emerald-500/30 text-emerald-400 font-semibold tracking-wider">
+							{player.currentTrack.format}
 						</span>
+						{#if player.currentTrack.bitrate_kbps}
+							<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold shadow-sm">
+								{player.currentTrack.bitrate_kbps.toLocaleString()} kbps
+							</span>
+						{/if}
+						{#if player.currentTrack.sample_rate || player.currentTrack.bits_per_sample}
+							<span class="text-[9px] font-mono text-neutral-400 hidden xl:inline">
+								{#if player.currentTrack.bits_per_sample}{player.currentTrack.bits_per_sample}-bit / {/if}
+								{#if player.currentTrack.sample_rate}{(player.currentTrack.sample_rate / 1000).toFixed(1)} kHz{/if}
+							</span>
+						{/if}
 					</div>
 				</div>
 			{:else}

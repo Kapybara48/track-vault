@@ -57,10 +57,15 @@
 				<div class="text-[11px] text-neutral-400 truncate">
 					{player.currentTrack.artist || player.currentAlbum?.artist || 'Track Vault'}
 				</div>
-				<div class="hidden sm:block mt-0.5">
-					<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-950 border border-emerald-500/30 text-emerald-400">
-						{player.currentTrack.format} Lossless
+				<div class="hidden sm:flex items-center gap-1.5 mt-0.5">
+					<span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-950 border border-emerald-500/30 text-emerald-400 font-semibold">
+						{player.currentTrack.format}
 					</span>
+					{#if player.currentTrack.bitrate_kbps}
+						<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 font-bold">
+							{player.currentTrack.bitrate_kbps.toLocaleString()} kbps
+						</span>
+					{/if}
 				</div>
 			</div>
 		</div>
