@@ -73,11 +73,20 @@ class GlobalPlayer {
 			this.isPlaying = true;
 		};
 
+		el.onplaying = () => {
+			this.isPlaying = true;
+		};
+
 		el.onpause = () => {
 			this.isPlaying = false;
 		};
 
+		el.onerror = () => {
+			this.isPlaying = false;
+		};
+
 		el.onended = () => {
+			this.isPlaying = false;
 			this.handleTrackEnded();
 		};
 
@@ -142,10 +151,15 @@ class GlobalPlayer {
 
 		if (this.audioEl) {
 			this.audioEl.src = `/api/tracks/${track.id}/audio`;
-			this.audioEl.play().catch((err) => {
-				console.warn('Playback error:', err);
-			});
-			this.isPlaying = true;
+			this.audioEl
+				.play()
+				.then(() => {
+					this.isPlaying = true;
+				})
+				.catch((err) => {
+					console.warn('Playback error:', err);
+					this.isPlaying = false;
+				});
 		}
 
 		if (typeof document !== 'undefined') {
@@ -168,8 +182,17 @@ class GlobalPlayer {
 
 		if (this.isPlaying) {
 			this.audioEl.pause();
+			this.isPlaying = false;
 		} else {
-			this.audioEl.play().catch((e) => console.warn('Play error:', e));
+			this.audioEl
+				.play()
+				.then(() => {
+					this.isPlaying = true;
+				})
+				.catch((e) => {
+					console.warn('Play error:', e);
+					this.isPlaying = false;
+				});
 		}
 	}
 

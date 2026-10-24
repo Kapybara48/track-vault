@@ -3,7 +3,13 @@ import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getTrackById, saveTrackLyrics } from '$lib/server/db.js';
-import { findCompanionLyricsFile, resolveTrackFilePath, isInstrumentalLyrics } from '$lib/server/scanner.js';
+import {
+	findCompanionLyricsFile,
+	resolveTrackFilePath,
+	isInstrumentalLyrics,
+	getMusicDirectory,
+	isPathWithin
+} from '$lib/server/scanner.js';
 import type { LyricsStatus } from '$lib/types/index.js';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -43,10 +49,16 @@ export const GET: RequestHandler = async ({ params }) => {
 		}
 	}
 
+	// If marked instrumental in database and has no text, supply default musical note marker
+	if (track.lyrics === 'instrumental' && !lyricsText.trim()) {
+		lyricsText = '[00:00.00]♪';
+	}
+
 	return json({
 		success: true,
 		lyrics_text: lyricsText,
 		lyrics_status: track.lyrics,
+		status: track.lyrics,
 		companion_path: companionPath,
 		has_companion: hasCompanion,
 		is_writable: isWritable,
@@ -70,6 +82,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		lyrics_text: string;
 		status?: LyricsStatus;
 		save_to_disk?: boolean;
+		overwrite?: boolean;
 	};
 
 	try {
@@ -83,7 +96,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	// Auto-detect status if not specified or verify synced vs plain vs instrumental
 	let status: LyricsStatus = body.status || 'synced_lrc';
 	if (!body.status) {
-		if (isInstrumentalLyrics(lyricsText)) {
+		if (isInstrumentalLyrics(lyricsText) || track.lyrics === 'instrumental') {
 			status = 'instrumental';
 		} else {
 			const hasTimestamps = /\[\d{1,2}:\d{2}/.test(lyricsText);
@@ -91,14 +104,35 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		}
 	}
 
-	// 1. Save directly to the song's folder file on disk
+	// 1. Save directly to the song's folder file on disk IF explicitly requested
 	let savedToDisk = false;
 	let diskError: string | null = null;
 	let diskPath: string | null = null;
+	const shouldSaveToDisk = body.save_to_disk === true;
 	const audioPath = resolveTrackFilePath(track);
 
-	if (audioPath) {
+	if (shouldSaveToDisk && audioPath) {
 		const dir = path.dirname(audioPath);
+
+		// Validate path boundary against configured music directory
+		const musicDir = getMusicDirectory();
+		let canonicalMusicDir: string;
+		try {
+			canonicalMusicDir = fs.existsSync(musicDir) ? fs.realpathSync(musicDir) : path.resolve(musicDir);
+		} catch {
+			canonicalMusicDir = path.resolve(musicDir);
+		}
+
+		let canonicalDiskDir: string;
+		try {
+			canonicalDiskDir = fs.existsSync(dir) ? fs.realpathSync(dir) : path.resolve(dir);
+		} catch {
+			canonicalDiskDir = path.resolve(dir);
+		}
+
+		if (!isPathWithin(canonicalDiskDir, canonicalMusicDir) && canonicalDiskDir !== canonicalMusicDir) {
+			return json({ error: 'Access denied: Target directory outside music directory' }, { status: 403 });
+		}
 		
 		// Check if companion file already exists
 		const existingCompanion = findCompanionLyricsFile(audioPath, track.title);
@@ -110,14 +144,21 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			diskPath = path.join(dir, `${base}${ext}`);
 		}
 
-		try {
-			fs.writeFileSync(diskPath, lyricsText, 'utf-8');
-			savedToDisk = true;
-		} catch (err: any) {
-			diskError =
-				err.code === 'EROFS'
-					? 'Music directory is mounted read-only (:ro). Synced lyrics saved to Track Vault database only.'
-					: `Could not write to disk: ${err.message}`;
+		const fileAlreadyExists = !!existingCompanion || (diskPath && fs.existsSync(diskPath));
+
+		// Require explicit confirmation to overwrite an existing companion file
+		if (fileAlreadyExists && body.overwrite !== true) {
+			diskError = 'Companion lyrics file already exists on disk. Explicit overwrite confirmation required.';
+		} else {
+			try {
+				fs.writeFileSync(diskPath, lyricsText, 'utf-8');
+				savedToDisk = true;
+			} catch (err: any) {
+				diskError =
+					err.code === 'EROFS'
+						? 'Music directory is mounted read-only (:ro). Synced lyrics saved to Track Vault database only.'
+						: `Could not write to disk: ${err.message}`;
+			}
 		}
 	}
 

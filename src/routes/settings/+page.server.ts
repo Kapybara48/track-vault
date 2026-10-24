@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types.js';
 import { getUserById, changePassword } from '$lib/server/auth.js';
 import { db } from '$lib/server/db.js';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) {
 		throw redirect(303, '/login?redirect=/settings');
 	}
@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		: 0;
 
 	const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number })?.count || 0;
+	const defaultPicardUrl = `http://${url.hostname || 'localhost'}:5800`;
 
 	return {
 		account: userDetails || locals.user,
@@ -24,7 +25,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			dataDir: process.env.DATA_DIR || './data',
 			musicDir: process.env.MUSIC_DIR || process.env.MUSIC_PATH || './music',
 			nodeEnv: process.env.NODE_ENV || 'development',
-			picardUrl: process.env.PICARD_URL || 'http://localhost:5800'
+			picardUrl: process.env.PICARD_URL || defaultPicardUrl
 		}
 	};
 };

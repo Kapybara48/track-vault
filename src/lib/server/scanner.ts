@@ -79,31 +79,31 @@ export function detectFormatAndQuality(
 ): { format: AudioFormat; quality: QualityRating } {
 	const c = (codec || container || '').toLowerCase();
 	const brKbps = bitrate && bitrate > 0 ? Math.round(bitrate / 1000) : 0;
-	const isHiRes = (bitsPerSample && bitsPerSample > 16) || (sampleRate && sampleRate > 48000);
-	const isCdQualityOrBetter = (!bitsPerSample || bitsPerSample >= 16) && (!sampleRate || sampleRate >= 44100);
+	// Genuine verified Hi-Res requires both high bit depth (>16 bit) and high sample rate (>=48kHz)
+	const isVerifiedHiRes = !!(bitsPerSample && bitsPerSample > 16 && sampleRate && sampleRate >= 48000);
 
 	// FLAC
 	if (c.includes('flac')) {
-		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
+		const quality: QualityRating = isVerifiedHiRes ? 'perfect' : 'good';
 		return { format: 'FLAC', quality };
 	}
 
 	// ALAC
 	if (c.includes('alac') || c.includes('apple lossless')) {
-		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
+		const quality: QualityRating = isVerifiedHiRes ? 'perfect' : 'good';
 		return { format: 'ALAC', quality };
 	}
 
 	// WAV / PCM / AIFF
 	if (c.includes('wav') || c.includes('pcm') || c.includes('aiff')) {
 		const fmt = c.includes('aiff') ? 'AIFF' : 'WAV';
-		const quality: QualityRating = isHiRes ? 'perfect' : isCdQualityOrBetter ? 'good' : 'acceptable';
+		const quality: QualityRating = isVerifiedHiRes ? 'perfect' : 'good';
 		return { format: fmt, quality };
 	}
 
-	// AAC / M4A - judge based on actual bitrate, do not invent 256kbps
+	// AAC / M4A
 	if (c.includes('aac') || c.includes('mp4a') || c.includes('m4a')) {
-		if (brKbps >= 240) {
+		if (brKbps >= 240 && brKbps <= 280) {
 			return { format: 'AAC_256', quality: 'good' };
 		}
 		if (brKbps >= 180) {
@@ -112,7 +112,7 @@ export function detectFormatAndQuality(
 		if (brKbps >= 120) {
 			return { format: 'OTHER', quality: 'acceptable' };
 		}
-		if (brKbps > 0) {
+		if (brKbps > 0 && brKbps < 120) {
 			return { format: 'OTHER', quality: 'bad' };
 		}
 		return { format: 'OTHER', quality: 'acceptable' };
@@ -128,20 +128,28 @@ export function detectFormatAndQuality(
 
 	// MP3 or other lossy MPEG layer 3
 	if (c.includes('mpeg') || c.includes('mp3') || c.includes('layer 3')) {
+		// Specific known CBR presets
 		if (brKbps >= 310) {
 			return { format: 'MP3_320', quality: 'good' };
 		}
-		if (brKbps >= 220) {
-			return { format: 'MP3_V0', quality: 'good' };
-		}
-		if (brKbps >= 180) {
+		if (brKbps >= 185 && brKbps <= 200) {
 			return { format: 'MP3_192', quality: 'acceptable' };
 		}
-		if (brKbps > 0) {
-			return { format: 'MP3_128', quality: 'bad' }; // Low bitrate, needs upgrade!
+		if (brKbps >= 120 && brKbps <= 135) {
+			return { format: 'MP3_128', quality: 'acceptable' };
 		}
-		// Bitrate unknown: do not assume 320kbps!
-		return { format: 'OTHER', quality: 'acceptable' };
+		// VBR / V0 preset: only classify as MP3_V0 if explicitly indicated or in typical V0 range (220-260kbps VBR)
+		if (c.includes('vbr') || c.includes('v0')) {
+			return { format: 'MP3_V0', quality: 'good' };
+		}
+		// Other bitrates (e.g. 256kbps CBR, 224kbps, 160kbps, or sub-128kbps)
+		let quality: QualityRating = 'acceptable';
+		if (brKbps >= 220) {
+			quality = 'good';
+		} else if (brKbps > 0 && brKbps < 120) {
+			quality = 'bad';
+		}
+		return { format: 'OTHER', quality };
 	}
 
 	return { format: 'OTHER', quality: 'acceptable' };

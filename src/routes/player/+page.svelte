@@ -77,7 +77,7 @@
 		return `${m}m ${s}s`;
 	}
 
-	// Parse LRC format into structured lines
+	// Parse LRC format into structured lines (supports multiple timestamps per line)
 	function parseLrc(content: string): { time: number | null; text: string }[] {
 		const lines = content.split('\n');
 		const result: { time: number | null; text: string }[] = [];
@@ -87,15 +87,27 @@
 			if (!line) continue;
 			if (/^\[(ti|ar|al|length|by|offset|re|ve):/i.test(line)) continue;
 
-			const match = line.match(/^\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\](.*)$/);
-			if (match) {
+			const timestampRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+			let match: RegExpExecArray | null;
+			const times: number[] = [];
+			let lastIndex = 0;
+
+			while ((match = timestampRegex.exec(line)) !== null) {
 				const m = parseInt(match[1], 10);
 				const s = parseInt(match[2], 10);
 				const ms = parseFloat(`0.${match[3] || '0'}`);
-				result.push({
-					time: m * 60 + s + ms,
-					text: match[4].trim()
-				});
+				times.push(m * 60 + s + ms);
+				lastIndex = timestampRegex.lastIndex;
+			}
+
+			if (times.length > 0) {
+				const lyricText = line.slice(lastIndex).trim();
+				for (const t of times) {
+					result.push({
+						time: t,
+						text: lyricText
+					});
+				}
 			} else {
 				result.push({
 					time: null,
@@ -103,6 +115,15 @@
 				});
 			}
 		}
+
+		// Sort timed lyrics chronologically
+		result.sort((a, b) => {
+			if (a.time === null && b.time === null) return 0;
+			if (a.time === null) return 1;
+			if (b.time === null) return -1;
+			return a.time - b.time;
+		});
+
 		return result;
 	}
 
@@ -138,24 +159,33 @@
 			return;
 		}
 
+		// If track is explicitly marked instrumental in database, render instrumental directly
+		if (track.lyrics === 'instrumental') {
+			isInstrumentalLyrics = true;
+			instrumentalMarker = '♪';
+			lyricsLines = [{ time: 0, text: instrumentalMarker }];
+			lyricsLoading = false;
+			return;
+		}
+
 		lyricsLoading = true;
 		try {
 			const res = await fetch(`/api/tracks/${track.id}/lyrics`);
 			const json = await res.json();
-			if (json.success && json.lyrics_text) {
-				const raw = json.lyrics_text.trim();
-				if (
-					json.status === 'instrumental' ||
-					/\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*(♪|♫|\[instrumental\]|\(instrumental\)|instrumental)/i.test(raw) ||
-					/\[au:\s*instrumental\]/i.test(raw)
-				) {
-					isInstrumentalLyrics = true;
-					instrumentalMarker = raw.includes('[instrumental]') ? '[instrumental]' : '♪';
-					lyricsLines = [{ time: 0, text: instrumentalMarker }];
-				} else {
-					isInstrumentalLyrics = false;
-					lyricsLines = parseLrc(raw);
-				}
+			const status = json.lyrics_status || json.status || track.lyrics;
+			const raw = json.lyrics_text ? json.lyrics_text.trim() : '';
+
+			if (
+				status === 'instrumental' ||
+				/\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*(♪|♫|\[instrumental\]|\(instrumental\)|instrumental)/i.test(raw) ||
+				/\[au:\s*instrumental\]/i.test(raw)
+			) {
+				isInstrumentalLyrics = true;
+				instrumentalMarker = raw.includes('[instrumental]') ? '[instrumental]' : '♪';
+				lyricsLines = [{ time: 0, text: instrumentalMarker }];
+			} else if (raw) {
+				isInstrumentalLyrics = false;
+				lyricsLines = parseLrc(raw);
 			} else {
 				lyricsLines = [];
 				isInstrumentalLyrics = false;
@@ -272,11 +302,19 @@
 		}
 
 		if (data.initialTrackId && !player.currentTrack) {
-			const tr = data.allTracks.find((t) => t.id === data.initialTrackId);
-			if (tr) {
-				const alb = data.albums.find((a) => a.id === tr.album_id);
-				if (alb) selectedAlbum = alb;
-				player.playTrack(tr, alb || selectedAlbum, selectedAlbum?.tracks);
+			let foundTrack: Track | undefined;
+			let foundAlbum: (typeof data.albums)[0] | undefined;
+			for (const alb of data.albums) {
+				const candidate = alb.tracks.find((t) => t.id === data.initialTrackId);
+				if (candidate) {
+					foundTrack = candidate;
+					foundAlbum = alb;
+					break;
+				}
+			}
+			if (foundTrack && foundAlbum) {
+				selectedAlbum = foundAlbum;
+				player.playTrack(foundTrack, foundAlbum, foundAlbum.tracks);
 			}
 		}
 	});

@@ -13,10 +13,25 @@ export const load: PageServerLoad = async ({ url }) => {
 	// Fetch all albums
 	const rawAlbums = getAlbums();
 
-	// Fetch all tracks with album details
+	// Fetch all tracks with album details (omitting bulky lyrics_text and server-side file_path)
 	const allTracks = db.prepare(`
 		SELECT 
-			t.*,
+			t.id,
+			t.album_id,
+			t.disc_number,
+			t.track_number,
+			t.title,
+			t.artist,
+			t.duration_ms,
+			t.format,
+			t.bitrate_kbps,
+			t.sample_rate,
+			t.bits_per_sample,
+			t.quality_rating,
+			t.censorship,
+			t.lyrics,
+			t.needs_attention,
+			t.manually_checked,
 			a.title as album_title,
 			a.artist as album_artist,
 			a.cover_url as album_cover_url,
@@ -41,7 +56,6 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	return {
 		albums,
-		allTracks,
 		initialAlbumId,
 		initialTrackId
 	};

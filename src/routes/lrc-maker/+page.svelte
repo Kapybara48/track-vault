@@ -140,16 +140,29 @@
 				continue;
 			}
 
-			// Check for timestamp [mm:ss.xx]
-			const timeMatch = line.match(/^(\[\d{1,2}:\d{2}(?:\.\d{1,3})?\])(.*)$/);
-			if (timeMatch) {
-				const time = parseTimestamp(timeMatch[1]);
-				const text = timeMatch[2].trim();
-				result.push({
-					id: Math.random().toString(36).slice(2, 9),
-					time,
-					text
-				});
+			// Extract all timestamps [mm:ss.xx]
+			const timestampRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+			let match: RegExpExecArray | null;
+			const times: number[] = [];
+			let lastIndex = 0;
+
+			while ((match = timestampRegex.exec(line)) !== null) {
+				const time = parseTimestamp(match[0]);
+				if (time !== null) {
+					times.push(time);
+				}
+				lastIndex = timestampRegex.lastIndex;
+			}
+
+			if (times.length > 0) {
+				const lyricText = line.slice(lastIndex).trim();
+				for (const t of times) {
+					result.push({
+						id: Math.random().toString(36).slice(2, 9),
+						time: t,
+						text: lyricText
+					});
+				}
 			} else {
 				result.push({
 					id: Math.random().toString(36).slice(2, 9),
@@ -158,6 +171,14 @@
 				});
 			}
 		}
+
+		// Sort timed lyrics chronologically
+		result.sort((a, b) => {
+			if (a.time === null && b.time === null) return 0;
+			if (a.time === null) return 1;
+			if (b.time === null) return -1;
+			return a.time - b.time;
+		});
 
 		return result.length > 0
 			? result
@@ -615,7 +636,8 @@
 				body: JSON.stringify({
 					lyrics_text: content,
 					status: isInstrumental ? 'instrumental' : 'synced_lrc',
-					save_to_disk: true
+					save_to_disk: true,
+					overwrite: true
 				})
 			});
 

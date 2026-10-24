@@ -121,6 +121,14 @@ This document preserves persistent context, architectural conventions, recent ch
       - `/issues`: Track table badge.
       - `/lrc-maker`: Audio header source label.
     - Added API endpoint `GET /api/tracks/[id]` for retrieving track metadata and bitrates.
+20. **Security & Code Review Remediation (Review Findings Fixes)**:
+    - **Lyrics Overwrite Safety & Path Validation**: In `src/routes/api/tracks/[id]/lyrics/+server.ts`, enforced `save_to_disk` flag, added directory traversal boundary checks using `isPathWithin(dir, musicDir)`, and required explicit `overwrite: true` confirmation before modifying existing companion files on disk.
+    - **Player Page Server Payload Optimization**: In `src/routes/player/+page.server.ts`, filtered out `lyrics_text`, `file_path`, and `notes`, and eliminated duplicate `allTracks` array from the payload, drastically reducing initial network response size.
+    - **Instrumental Detection Fix**: Aligned the lyrics API response (`lyrics_status` and `status`) with `/player` and `lrc-maker`, ensuring tracks marked instrumental render musical note markers even if `lyrics_text` is empty.
+    - **Multi-Timestamp LRC Support**: Updated LRC parsing in both `/player` and `/lrc-maker` to extract multiple timestamps on single lines (e.g. `[00:10.00][00:20.00]Chorus`) and sort timed lyrics chronologically.
+    - **Audio Playback State Synchronization**: Updated `src/lib/services/player.svelte.ts` to strictly derive `isPlaying` from `HTMLAudioElement` events (`onplay`, `onplaying`, `onpause`, `onerror`, `onended`) and gracefully handle rejected `play()` promises.
+    - **Format & Quality Classification Precision**: Refined `detectFormatAndQuality()` in `scanner.ts` to prevent false `MP3_V0` labels on arbitrary bitrates and avoid inferring Hi-Res without verified high bit depth and sample rate.
+    - **Dynamic Picard URL**: Updated `+layout.server.ts` and `settings/+page.server.ts` to dynamically resolve the Picard Web GUI address from `url.hostname`, fixing broken links when accessing Track Vault across the LAN or mobile devices.
 
 ---
 

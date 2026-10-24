@@ -251,7 +251,8 @@
 				body: JSON.stringify({
 					lyrics_text: lyricsModalText,
 					status: lyricsModalStatus,
-					save_to_disk: true
+					save_to_disk: true,
+					overwrite: true
 				})
 			});
 			const json = await res.json();
